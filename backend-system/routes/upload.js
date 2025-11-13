@@ -44,6 +44,78 @@ const uploadToCloudinary = (file, folder) => {
   });
 };
 
+// @route   POST /api/upload/avatar
+// @desc    Upload profile photo or company logo
+// @access  Private
+router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        message: 'No image provided. Please choose a photo to upload.'
+      });
+    }
+
+    if (!req.file.mimetype.startsWith('image/')) {
+      return res.status(400).json({
+        message: 'Only image files (JPEG or PNG) are allowed for profile photos.'
+      });
+    }
+
+    const isCompany = req.user.userType === 'company';
+    const folder = isCompany ? 'company-logos' : 'profile-avatars';
+
+    // Remove previous asset if it exists
+    const existingPublicId = isCompany
+      ? req.user.company?.logoPublicId
+      : req.user.profile?.avatarPublicId;
+
+    if (existingPublicId) {
+      try {
+        await cloudinary.uploader.destroy(existingPublicId);
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to remove previous avatar from Cloudinary:', cleanupError.message);
+      }
+    }
+
+    const result = await uploadToCloudinary(req.file, folder);
+
+    const updatePayload = isCompany
+      ? {
+          'company.logo': result.secure_url,
+          'company.logoPublicId': result.public_id
+        }
+      : {
+          'profile.avatar': result.secure_url,
+          'profile.avatarPublicId': result.public_id
+        };
+
+    const user = await User.findByIdAndUpdate(req.user.id, updatePayload, {
+      new: true
+    });
+
+    res.json({
+      message: isCompany
+        ? 'Company logo updated successfully.'
+        : 'Profile photo updated successfully.',
+      avatarUrl: isCompany ? user.company.logo : user.profile.avatar,
+      user: {
+        id: user._id,
+        email: user.email,
+        userType: user.userType,
+        profile: user.profile,
+        company: user.company,
+        approvalStatus: user.approvalStatus
+      }
+    });
+  } catch (error) {
+    console.error('Avatar upload error:', error);
+    res.status(500).json({
+      message: 'Server error during avatar upload',
+      error: error.message
+    });
+  }
+});
+
 // @route   POST /api/upload/business-certificate
 // @desc    Upload business certificate for company verification
 // @access  Private (Company users only)

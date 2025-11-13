@@ -1,60 +1,50 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 
 const router = express.Router();
 
+// Generate JWT token
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ userId }, process.env.JWT_SECRET || 'fallback-secret', { 
+    expiresIn: '30d' 
+  });
 };
 
-// REGISTRATION - Enhanced for company business verification
+// Test route
+router.get('/test', (req, res) => {
+  res.json({ message: 'Auth routes are working!' });
+});
+
+// Register endpoint
 router.post('/register', async (req, res) => {
   try {
-    console.log('Registration attempt:', req.body);
-    
-    const { 
-      email, 
-      password, 
-      userType, 
-      
-      // Job seeker fields
-      firstName, 
+    const {
+      email,
+      password,
+      userType,
+      firstName,
       lastName,
-      
-      // Company fields - Required
+      bio,
+      location,
+      phone,
+      skills,
+      experienceLevel,
+      educationLevel,
       companyName,
       companyDescription,
-      website,
-      industry,
-      
-      // Company contact
-      contactPhone,
-      contactPersonName,
-      contactPersonPosition,
-      
-      // Company address
-      street,
-      city,
-      district,
-      province,
-      
-      // Business registration
-      registrationNumber,
-      tinNumber
+      companyWebsite,
+      companyIndustry,
+      companyContactPhone,
+      companyContactEmail
     } = req.body;
-
+    
+    console.log('📝 Registration attempt:', { email, userType });
+    
     // Basic validation
     if (!email || !password || !userType) {
       return res.status(400).json({ 
         message: 'Email, password and userType are required' 
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ 
-        message: 'Password must be at least 6 characters' 
       });
     }
 
@@ -66,7 +56,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Prepare user data based on userType
+    // Create user data
     const userData = {
       email,
       password,
@@ -74,81 +64,45 @@ router.post('/register', async (req, res) => {
     };
 
     if (userType === 'jobseeker') {
+      const parsedSkills = Array.isArray(skills)
+        ? skills
+        : typeof skills === 'string' && skills.length > 0
+        ? skills.split(',').map((skill) => skill.trim()).filter(Boolean)
+        : [];
+
       userData.profile = {
         firstName: firstName || '',
-        lastName: lastName || ''
+        lastName: lastName || '',
+        bio: bio || '',
+        location: location || '',
+        phone: phone || '',
+        skills: parsedSkills,
+        experienceLevel: experienceLevel || 'entry',
+        educationLevel: educationLevel || 'high-school'
       };
     } else if (userType === 'company') {
-      // Enhanced validation for company registration
-      if (!companyName) {
-        return res.status(400).json({ 
-          message: 'Company name is required' 
-        });
-      }
-      if (!contactPersonName) {
-        return res.status(400).json({ 
-          message: 'Contact person name is required' 
-        });
-      }
-      if (!registrationNumber) {
-        return res.status(400).json({ 
-          message: 'Business registration number is required' 
-        });
-      }
-      
       userData.company = {
-        name: companyName,
+        name: companyName || '',
         description: companyDescription || '',
-        website: website || '',
-        industry: industry || '',
-        
-        // Contact information
+        website: companyWebsite || '',
+        industry: companyIndustry || '',
         contact: {
-          phone: contactPhone || '',
-          email: email, // Use registration email as contact email
-          personName: contactPersonName,
-          personPosition: contactPersonPosition || 'Manager'
-        },
-        
-        // Address
-        address: {
-          street: street || '',
-          city: city || 'Kigali',
-          district: district || '',
-          province: province || 'Kigali City'
-        },
-        
-        // Business registration (certificate will be uploaded separately)
-        businessRegistration: {
-          registrationNumber: registrationNumber,
-          tinNumber: tinNumber || ''
+          phone: companyContactPhone || '',
+          email: companyContactEmail || ''
         }
       };
     }
 
     const user = new User(userData);
     await user.save();
-    
-    console.log('User saved successfully:', {
-      email: user.email,
-      userType: user.userType,
-      approvalStatus: user.approvalStatus,
-      companyName: user.company?.name
-    });
 
     // Generate token
     const token = generateToken(user._id);
 
-    // Different messages based on user type
-    let approvalMessage = '';
-    if (user.userType === 'jobseeker') {
-      approvalMessage = 'Your job seeker account has been automatically approved!';
-    } else {
-      approvalMessage = 'Your company account is pending approval. Please upload your business certificate to complete verification.';
-    }
-
     res.status(201).json({
-      message: `Registration successful! ${approvalMessage}`,
+      message: user.userType === 'jobseeker' 
+        ? 'Job seeker account created successfully!' 
+        : 'Company account created! Pending approval.',
       token,
       user: {
         id: user._id,
@@ -156,24 +110,25 @@ router.post('/register', async (req, res) => {
         userType: user.userType,
         profile: user.profile,
         company: user.company,
-        approvalStatus: user.approvalStatus,
-        approvedAt: user.approvedAt
+        approvalStatus: user.approvalStatus
       }
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('❌ Registration error:', error);
     res.status(500).json({ 
       message: 'Server error during registration',
-      error: error.message
+      error: error.message 
     });
   }
 });
 
-// Keep the login function the same as before...
+// Login endpoint
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    
+    console.log('🔐 Login attempt:', { email });
 
     if (!email || !password) {
       return res.status(400).json({ 
@@ -197,12 +152,11 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check if company is approved
+    // Check approval for companies
     if (user.userType === 'company' && user.approvalStatus !== 'approved') {
       return res.status(403).json({
-        message: 'Your company account is pending approval. Please wait for admin approval.',
-        approvalStatus: user.approvalStatus,
-        needsCertificate: !user.company.businessRegistration.certificate.url
+        message: 'Company account pending approval',
+        approvalStatus: user.approvalStatus
       });
     }
 
@@ -218,13 +172,12 @@ router.post('/login', async (req, res) => {
         userType: user.userType,
         profile: user.profile,
         company: user.company,
-        approvalStatus: user.approvalStatus,
-        approvedAt: user.approvedAt
+        approvalStatus: user.approvalStatus
       }
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('❌ Login error:', error);
     res.status(500).json({ 
       message: 'Server error during login',
       error: error.message 
