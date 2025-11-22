@@ -53,7 +53,7 @@ const applicationSchema = new mongoose.Schema({
     type: String,
     enum: [
       'submitted',       // Application received
-      'under-review',    // Company is reviewing
+      'reviewing',       // Company is reviewing  
       'shortlisted',     // Made it to next round
       'interview',       // Interview scheduled
       'rejected',        // Application rejected

@@ -13,11 +13,12 @@ router.get('/profile', auth, async (req, res) => {
     res.json({
       message: 'Profile retrieved successfully',
       user: {
-        id: user._id,
+        id: user._id.toString(),
         email: user.email,
         userType: user.userType,
         profile: user.profile,
         company: user.company,
+        approvalStatus: user.approvalStatus,
         isVerified: user.isVerified,
         createdAt: user.createdAt
       }
@@ -43,40 +44,46 @@ router.put('/profile', auth, async (req, res) => {
       location, 
       bio, 
       skills,
-      // For job seekers
-      education,
-      experience,
+      experienceLevel,
+      educationLevel,
       // For employers
       companyName,
       companyDescription,
       website,
-      industry
+      industry,
+      companyPhone,
+      personName,
+      personPosition,
+      registrationNumber
     } = req.body;
 
     const updateData = {};
     
     // Update profile fields for job seekers
     if (req.user.userType === 'jobseeker') {
-      updateData.profile = {
-        firstName: firstName || req.user.profile.firstName,
-        lastName: lastName || req.user.profile.lastName,
-        phone: phone || req.user.profile.phone,
-        location: location || req.user.profile.location,
-        bio: bio || req.user.profile.bio,
-        skills: skills || req.user.profile.skills,
-        education: education || req.user.profile.education,
-        experience: experience || req.user.profile.experience
-      };
+      updateData['profile.firstName'] = firstName ?? req.user.profile.firstName;
+      updateData['profile.lastName'] = lastName ?? req.user.profile.lastName;
+      updateData['profile.phone'] = phone ?? req.user.profile.phone;
+      updateData['profile.location'] = location ?? req.user.profile.location;
+      updateData['profile.bio'] = bio ?? req.user.profile.bio;
+      if (skills !== undefined) {
+        updateData['profile.skills'] = Array.isArray(skills) ? skills : [skills];
+      }
+      if (experienceLevel) updateData['profile.experienceLevel'] = experienceLevel;
+      if (educationLevel) updateData['profile.educationLevel'] = educationLevel;
     }
     
-    // Update company info for employers
-    if (req.user.userType === 'employer') {
-      updateData.company = {
-        name: companyName || req.user.company.name,
-        description: companyDescription || req.user.company.description,
-        website: website || req.user.company.website,
-        industry: industry || req.user.company.industry
-      };
+    // Update company info for companies
+    if (req.user.userType === 'company') {
+      updateData['company.name'] = companyName ?? req.user.company.name;
+      updateData['company.description'] = companyDescription ?? req.user.company.description;
+      updateData['company.website'] = website ?? req.user.company.website;
+      updateData['company.industry'] = industry ?? req.user.company.industry;
+      updateData['company.contact.phone'] = companyPhone ?? req.user.company.contact.phone;
+      updateData['company.contact.email'] = req.user.email;
+      updateData['company.contact.personName'] = personName ?? req.user.company.contact.personName;
+      updateData['company.contact.personPosition'] = personPosition ?? req.user.company.contact.personPosition;
+      updateData['company.businessRegistration.registrationNumber'] = registrationNumber ?? req.user.company.businessRegistration.registrationNumber;
     }
 
     const user = await User.findByIdAndUpdate(
@@ -88,11 +95,12 @@ router.put('/profile', auth, async (req, res) => {
     res.json({
       message: 'Profile updated successfully',
       user: {
-        id: user._id,
+        id: user._id.toString(),
         email: user.email,
         userType: user.userType,
         profile: user.profile,
-        company: user.company
+        company: user.company,
+        approvalStatus: user.approvalStatus
       }
     });
   } catch (error) {
@@ -104,14 +112,15 @@ router.put('/profile', auth, async (req, res) => {
   }
 });
 
+
 // @route   GET /api/users/jobseekers
-// @desc    Get all job seekers (for employers)
+// @desc    Get all job seekers (for companies)
 // @access  Private
 router.get('/jobseekers', auth, async (req, res) => {
   try {
-    if (req.user.userType !== 'employer') {
+    if (req.user.userType !== 'company') {
       return res.status(403).json({ 
-        message: 'Only employers can access job seeker profiles' 
+        message: 'Only companies can access job seeker profiles' 
       });
     }
 

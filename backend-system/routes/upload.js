@@ -99,7 +99,7 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
         : 'Profile photo updated successfully.',
       avatarUrl: isCompany ? user.company.logo : user.profile.avatar,
       user: {
-        id: user._id,
+        id: user._id.toString(),
         email: user.email,
         userType: user.userType,
         profile: user.profile,
@@ -163,11 +163,11 @@ router.post('/business-certificate', auth, upload.single('certificate'), async (
       message: 'Business certificate uploaded successfully! Your account will be reviewed by our team.',
       certificate: certificateInfo,
       user: {
-        id: user._id,
-        company: {
-          name: user.company.name,
-          businessRegistration: user.company.businessRegistration
-        }
+        id: user._id.toString(),
+        email: user.email,
+        userType: user.userType,
+        company: user.company,
+        approvalStatus: user.approvalStatus
       }
     });
 
@@ -227,8 +227,11 @@ router.post('/cv', auth, upload.single('cv'), async (req, res) => {
       message: 'CV uploaded successfully!',
       cv: cvInfo,
       user: {
-        id: user._id,
-        profile: user.profile
+        id: user._id.toString(),
+        email: user.email,
+        userType: user.userType,
+        profile: user.profile,
+        approvalStatus: user.approvalStatus
       }
     });
 
@@ -291,8 +294,11 @@ router.post('/id-document', auth, upload.single('idDocument'), async (req, res) 
       message: 'ID document uploaded successfully!',
       idDocument: idDocumentInfo,
       user: {
-        id: user._id,
-        profile: user.profile
+        id: user._id.toString(),
+        email: user.email,
+        userType: user.userType,
+        profile: user.profile,
+        approvalStatus: user.approvalStatus
       }
     });
 
@@ -327,7 +333,11 @@ router.delete('/business-certificate', auth, async (req, res) => {
 
     // Delete from Cloudinary
     if (certificate.publicId) {
-      await cloudinary.uploader.destroy(certificate.publicId);
+      try {
+        await cloudinary.uploader.destroy(certificate.publicId);
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to delete certificate from Cloudinary:', cleanupError.message);
+      }
     }
 
     // Remove from database
@@ -335,19 +345,151 @@ router.delete('/business-certificate', auth, async (req, res) => {
       filename: '',
       url: '',
       publicId: '',
-      uploadedAt: null
+      uploadedAt: null,
+      fileSize: 0,
+      format: ''
     };
     
     await user.save();
 
     res.json({
-      message: 'Business certificate deleted successfully'
+      message: 'Business certificate deleted successfully',
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        userType: user.userType,
+        company: user.company,
+        approvalStatus: user.approvalStatus
+      }
     });
 
   } catch (error) {
     console.error('Certificate deletion error:', error);
     res.status(500).json({ 
       message: 'Server error during certificate deletion',
+      error: error.message 
+    });
+  }
+});
+
+// @route   DELETE /api/upload/cv
+// @desc    Delete CV for job seekers
+// @access  Private (Job seeker only)
+router.delete('/cv', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({ 
+        message: 'Only job seekers can delete CVs' 
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+    const cv = user.profile.documents.cv;
+
+    if (!cv.url) {
+      return res.status(400).json({ 
+        message: 'No CV found to delete' 
+      });
+    }
+
+    // Delete from Cloudinary
+    if (cv.publicId) {
+      try {
+        await cloudinary.uploader.destroy(cv.publicId);
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to delete CV from Cloudinary:', cleanupError.message);
+      }
+    }
+
+    // Remove from database
+    user.profile.documents.cv = {
+      filename: '',
+      url: '',
+      publicId: '',
+      uploadedAt: null,
+      fileSize: 0,
+      format: ''
+    };
+    
+    await user.save();
+
+    res.json({
+      message: 'CV deleted successfully',
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        userType: user.userType,
+        profile: user.profile,
+        approvalStatus: user.approvalStatus
+      }
+    });
+
+  } catch (error) {
+    console.error('CV deletion error:', error);
+    res.status(500).json({ 
+      message: 'Server error during CV deletion',
+      error: error.message 
+    });
+  }
+});
+
+// @route   DELETE /api/upload/id-document
+// @desc    Delete ID document for job seekers
+// @access  Private (Job seeker only)
+router.delete('/id-document', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({ 
+        message: 'Only job seekers can delete ID documents' 
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+    const idDoc = user.profile.documents.idDocument;
+
+    if (!idDoc.url) {
+      return res.status(400).json({ 
+        message: 'No ID document found to delete' 
+      });
+    }
+
+    // Delete from Cloudinary
+    if (idDoc.publicId) {
+      try {
+        await cloudinary.uploader.destroy(idDoc.publicId);
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to delete ID document from Cloudinary:', cleanupError.message);
+      }
+    }
+
+    // Remove from database
+    user.profile.documents.idDocument = {
+      filename: '',
+      url: '',
+      publicId: '',
+      uploadedAt: null,
+      fileSize: 0,
+      format: '',
+      idType: 'national_id'
+    };
+    
+    await user.save();
+
+    res.json({
+      message: 'ID document deleted successfully',
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        userType: user.userType,
+        profile: user.profile,
+        approvalStatus: user.approvalStatus
+      }
+    });
+
+  } catch (error) {
+    console.error('ID document deletion error:', error);
+    res.status(500).json({ 
+      message: 'Server error during ID document deletion',
       error: error.message 
     });
   }

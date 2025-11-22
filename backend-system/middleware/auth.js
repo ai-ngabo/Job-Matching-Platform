@@ -3,29 +3,53 @@ import User from '../models/User.js';
 
 const auth = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const authHeader = req.header('Authorization');
+    const token = authHeader?.replace('Bearer ', '')?.trim();
     
-    if (!token) {
+    if (!token || token === 'null' || token === 'undefined') {
+      console.warn('⚠️ No valid authorization token provided');
       return res.status(401).json({ 
         message: 'No token provided, access denied' 
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId);
-    
-    if (!user) {
-      return res.status(401).json({ 
-        message: 'Token is invalid, user not found' 
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET not configured');
+      return res.status(500).json({ 
+        message: 'Server configuration error' 
       });
     }
 
-    req.user = user;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Make sure we select approvalStatus as well
+    const user = await User.findById(decoded.userId)
+      .select('userType email profile company approvalStatus');
+
+    if (!user) {
+      return res.status(401).json({ message: 'Token is invalid, user not found' });
+    }
+
+    req.user = {
+      id: user._id,
+      userType: user.userType,
+      email: user.email,
+      profile: user.profile, 
+      company: user.company,
+      approvalStatus: user.approvalStatus   
+    };
+
     next();
+    
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    console.error('❌ Auth middleware error:', {
+      name: error.name,
+      message: error.message,
+      token: req.header('Authorization')?.substring(0, 20) + '...'
+    });
     res.status(401).json({ 
-      message: 'Token is not valid' 
+      message: 'Token is not valid',
+      error: error.message 
     });
   }
 };
