@@ -6,9 +6,13 @@ export const authService = {
     
     // Store token and user data if provided by backend
     if (response.data.token) {
+      console.log('💾 Storing token from register:', response.data.token.substring(0, 20) + '...');
       localStorage.setItem('authToken', response.data.token);
+    } else {
+      console.error('❌ No token in register response:', response.data);
     }
     if (response.data.user) {
+      console.log('💾 Storing user from register:', response.data.user);
       localStorage.setItem('user', JSON.stringify(response.data.user));
     }
     
@@ -28,9 +32,13 @@ export const authService = {
 
     // Store token and user data if provided by backend
     if (response.data.token) {
+      console.log('💾 Storing token:', response.data.token.substring(0, 20) + '...');
       storage.setItem('authToken', response.data.token);
+    } else {
+      console.error('❌ No token in login response:', response.data);
     }
     if (response.data.user) {
+      console.log('💾 Storing user:', response.data.user);
       storage.setItem('user', JSON.stringify(response.data.user));
     }
 

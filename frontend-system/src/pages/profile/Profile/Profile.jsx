@@ -12,6 +12,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { userService } from '../../../services/userService';
+import ProfileEditor from '../../../components/profile/ProfileEditor';
+import ProfileCompleteness from '../../../components/profile/ProfileCompleteness';
+import DocumentUpload from '../../../components/profile/DocumentUpload';
 import './Profile.css';
 
 const capitalize = (value = '') =>
@@ -151,6 +154,22 @@ const Profile = () => {
     [updateUser, uploadingAvatar]
   );
 
+  const handleProfileUpdate = useCallback(
+    (updatedUser) => {
+      setProfileData(updatedUser);
+      updateUser(updatedUser);
+    },
+    [updateUser]
+  );
+
+  const handleDocumentUploadSuccess = useCallback(
+    (updatedUser) => {
+      setProfileData(updatedUser);
+      updateUser(updatedUser);
+    },
+    [updateUser]
+  );
+
   const isJobSeeker = profileData?.userType === 'jobseeker';
   const isCompany = profileData?.userType === 'company';
 
@@ -202,6 +221,11 @@ const Profile = () => {
     <div className="profile-container">
       <div className="profile-header">
         <h1 className="profile-title">My Profile</h1>
+        <ProfileEditor
+          profileData={profileData}
+          isCompany={isCompany}
+          onSave={handleProfileUpdate}
+        />
       </div>
 
       {error && <div className="profile-error">{error}</div>}
@@ -386,6 +410,17 @@ const Profile = () => {
           </section>
         )}
       </div>
+
+      <ProfileCompleteness
+        profileData={profileData}
+        isCompany={isCompany}
+      />
+
+      <DocumentUpload
+        profileData={profileData}
+        isCompany={isCompany}
+        onUploadSuccess={handleDocumentUploadSuccess}
+      />
     </div>
   );
 };

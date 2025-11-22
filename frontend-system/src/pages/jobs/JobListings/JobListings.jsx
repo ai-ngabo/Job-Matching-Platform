@@ -1,56 +1,111 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, MapPin, Building2, Clock, DollarSign } from 'lucide-react';
+import { Search, Filter, MapPin, Building2, Clock, DollarSign, AlertCircle, Bookmark, BookmarkCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import './JobListings.css';
 
 const JobListings = () => {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [savedJobs, setSavedJobs] = useState([]);
   const [filters, setFilters] = useState({
     jobType: '',
-    experience: '',
+    category: '',
     location: '',
     minSalary: ''
   });
 
-  const jobTypes = ['Full-time', 'Part-time', 'Contract', 'Remote'];
-  const experienceLevels = ['Entry', 'Mid', 'Senior', 'Executive'];
+  const jobTypes = ['full-time', 'part-time', 'contract', 'internship', 'remote'];
+  const categories = ['technology', 'business', 'healthcare', 'education', 'engineering', 'design', 'marketing', 'sales', 'customer-service'];
 
+  // Fetch real jobs from API
   useEffect(() => {
-    // Mock data - replace with actual API call
-    const mockJobs = [
-      {
-        id: '1',
-        title: 'Frontend Developer',
-        company: 'TechCorp',
-        location: 'San Francisco, CA',
-        salary: '$90,000 - $120,000',
-        type: 'Full-time',
-        experience: 'Mid',
-        postedDate: '2024-01-15',
-        description: 'We are looking for a skilled Frontend Developer...',
-        skills: ['React', 'TypeScript', 'CSS', 'JavaScript'],
-        matchScore: 95
-      },
-      {
-        id: '2',
-        title: 'Backend Engineer',
-        company: 'DataSystems',
-        location: 'Remote',
-        salary: '$110,000 - $140,000',
-        type: 'Full-time',
-        experience: 'Senior',
-        postedDate: '2024-01-14',
-        description: 'Join our backend team to build scalable systems...',
-        skills: ['Node.js', 'Python', 'AWS', 'MongoDB'],
-        matchScore: 87
-      }
-    ];
-    
-    setJobs(mockJobs);
-    setFilteredJobs(mockJobs);
+    fetchJobs();
+    // Load saved jobs from localStorage
+    const saved = JSON.parse(localStorage.getItem('savedJobs') || '[]');
+    setSavedJobs(saved);
   }, []);
 
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch('http://localhost:5000/api/jobs?limit=50&sortBy=createdAt&sortOrder=desc', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch jobs: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const activeJobs = data.jobs || [];
+      
+      // Transform backend data to match frontend format
+      const transformedJobs = activeJobs.map(job => ({
+        _id: job._id,
+        id: job._id,
+        title: job.title || 'Untitled Position',
+        company: job.companyName || 'Company Name',
+        companyLogo: job.company?.company?.logo || '',
+        location: job.location || 'Location not specified',
+        salary: job.salaryRange?.min && job.salaryRange?.max 
+          ? `${job.salaryRange.currency} ${job.salaryRange.min.toLocaleString()} - ${job.salaryRange.max.toLocaleString()}`
+          : 'Salary not specified',
+        type: job.jobType || 'full-time',
+        category: job.category || 'other',
+        postedDate: new Date(job.createdAt).toLocaleDateString(),
+        description: job.description || '',
+        requirements: job.requirements || [],
+        skills: job.skillsRequired || [],
+        views: job.views || 0,
+        applications: job.applicationCount || 0,
+        matchScore: Math.floor(Math.random() * 30) + 70 // Placeholder match score
+      }));
+
+      setJobs(transformedJobs);
+      setFilteredJobs(transformedJobs);
+    } catch (err) {
+      console.error('Error fetching jobs:', err);
+      setError(err.message || 'Failed to load jobs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Toggle save job
+  const toggleSaveJob = (jobId) => {
+    console.log('💾 Toggling save for job:', jobId);
+    let updated = [...savedJobs];
+    if (updated.includes(jobId)) {
+      updated = updated.filter(id => id !== jobId);
+      console.log('  → Removed from saved jobs');
+    } else {
+      updated.push(jobId);
+      console.log('  → Added to saved jobs');
+    }
+    console.log('  📝 Updated saved list:', updated);
+    setSavedJobs(updated);
+    localStorage.setItem('savedJobs', JSON.stringify(updated));
+    console.log('  ✅ Stored in localStorage');
+    
+    // Dispatch storage event for navbar badge and saved jobs page update
+    window.dispatchEvent(new Event('storage'));
+    console.log('  📢 Storage event dispatched');
+  };
+
+  // View job details
+  const viewJobDetails = (jobId) => {
+    navigate(`/jobs/${jobId}`);
+  };
+
+  // Filter jobs based on search and filters
   useEffect(() => {
     let result = jobs.filter(job => 
       job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -61,8 +116,8 @@ const JobListings = () => {
     if (filters.jobType) {
       result = result.filter(job => job.type === filters.jobType);
     }
-    if (filters.experience) {
-      result = result.filter(job => job.experience === filters.experience);
+    if (filters.category) {
+      result = result.filter(job => job.category === filters.category);
     }
     if (filters.location) {
       result = result.filter(job => job.location.toLowerCase().includes(filters.location.toLowerCase()));
@@ -103,77 +158,137 @@ const JobListings = () => {
             
             <select
               className="filter-select"
-              value={filters.experience}
-              onChange={(e) => setFilters({...filters, experience: e.target.value})}
+              value={filters.category}
+              onChange={(e) => setFilters({...filters, category: e.target.value})}
             >
-              <option value="">All Levels</option>
-              {experienceLevels.map(level => (
-                <option key={level} value={level}>{level}</option>
+              <option value="">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
           </div>
         </div>
       </div>
 
+      {/* Error State */}
+      {error && (
+        <div className="error-state">
+          <AlertCircle size={20} />
+          <span>{error}</span>
+          <button onClick={fetchJobs} className="retry-btn">Retry</button>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>Loading jobs from our database...</p>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && filteredJobs.length === 0 && (
+        <div className="empty-state">
+          <p>No jobs found matching your criteria.</p>
+          <button onClick={() => {
+            setSearchTerm('');
+            setFilters({ jobType: '', category: '', location: '', minSalary: '' });
+          }} className="reset-btn">
+            Clear Filters
+          </button>
+        </div>
+      )}
+
       {/* Job List */}
-      <div className="jobs-grid">
-        {filteredJobs.map(job => (
-          <div key={job.id} className="job-card">
-            <div className="job-card-header">
-              <div className="job-title-section">
-                <div className="job-title-wrapper">
-                  <h3 className="job-title">{job.title}</h3>
-                  <span className="match-score-badge">
-                    {job.matchScore}% Match
-                  </span>
+      {!loading && !error && filteredJobs.length > 0 && (
+        <div className="jobs-grid">
+          {filteredJobs.map(job => (
+            <div key={job._id} className="job-card">
+              {/* Card Header */}
+              <div className="card-header">
+                <div className="logo-wrapper">
+                  {job.companyLogo ? (
+                    <img src={job.companyLogo} alt={job.company} className="company-logo" />
+                  ) : (
+                    <Building2 size={40} className="logo-placeholder" />
+                  )}
                 </div>
-                
-                <div className="job-meta-info">
-                  <div className="job-meta-item">
-                    <Building2 className="meta-icon" />
-                    <span>{job.company}</span>
-                  </div>
-                  <div className="job-meta-item">
-                    <MapPin className="meta-icon" />
+                <button 
+                  className={`save-btn ${savedJobs.includes(job._id) ? 'saved' : ''}`}
+                  onClick={() => toggleSaveJob(job._id)}
+                  title={savedJobs.includes(job._id) ? 'Remove from saved' : 'Save job'}
+                >
+                  {savedJobs.includes(job._id) ? (
+                    <BookmarkCheck size={20} />
+                  ) : (
+                    <Bookmark size={20} />
+                  )}
+                </button>
+              </div>
+
+              {/* Card Body */}
+              <div className="card-body">
+                <h3 className="job-title">{job.title}</h3>
+                <p className="company-name">{job.company}</p>
+
+                {/* Quick Stats */}
+                <div className="stats-row">
+                  <div className="stat">
+                    <MapPin size={14} />
                     <span>{job.location}</span>
                   </div>
-                  <div className="job-meta-item">
-                    <Clock className="meta-icon" />
-                    <span>{job.type}</span>
-                  </div>
-                  <div className="job-meta-item">
-                    <DollarSign className="meta-icon" />
+                  <div className="stat">
+                    <DollarSign size={14} />
                     <span>{job.salary}</span>
                   </div>
                 </div>
+
+                {/* Meta Tags */}
+                <div className="meta-tags">
+                  <span className="tag type">{job.type}</span>
+                  <span className="tag category">{job.category}</span>
+                  <span className="tag match">{job.matchScore}% Match</span>
+                </div>
+
+                {/* Description Preview */}
+                <p className="job-description">
+                  {job.description?.substring(0, 100)}...
+                </p>
+
+                {/* Footer Stats */}
+                <div className="card-footer-stats">
+                  <div className="footer-stat">
+                    <span>{job.views} views</span>
+                  </div>
+                  <div className="footer-stat">
+                    <span>{job.applications} applications</span>
+                  </div>
+                  <div className="footer-stat">
+                    <span>{job.postedDate}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Actions */}
+              <div className="card-actions">
+                <button 
+                  className="action-btn primary"
+                  onClick={() => viewJobDetails(job._id)}
+                >
+                  View Details
+                </button>
+                <button 
+                  className="action-btn secondary"
+                  onClick={() => viewJobDetails(job._id)}
+                >
+                  Apply
+                </button>
               </div>
             </div>
-
-            <div className="job-description">
-              <p>{job.description}</p>
-            </div>
-
-            <div className="skills-section">
-              <div className="skills-tags">
-                {job.skills.map((skill, index) => (
-                  <span key={index} className="skill-tag">
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="job-card-actions">
-              <button className="view-details-btn">
-                View Details
-              </button>
-              <button className="save-job-btn">
-                Save Job
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
