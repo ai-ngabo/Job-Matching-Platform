@@ -15,11 +15,17 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken') ?? sessionStorage.getItem('authToken');
     if (token) {
+      console.log('📝 Token retrieved:', token.substring(0, 20) + '...');
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.warn('⚠️ No token found in localStorage or sessionStorage');
     }
-    console.log('➡️ API Request:', config.method?.toUpperCase(), config.url);
+    console.log('➡️ API Request:', config.method?.toUpperCase(), config.url, {
+      hasToken: !!token,
+      authHeader: config.headers.Authorization?.substring(0, 30) + '...'
+    });
     return config;
   },
   (error) => {
@@ -31,14 +37,18 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ API Response:', response.status, response.config.url);
+    console.log('✅ API Response:', response.status, response.config.url, {
+      dataKeys: Object.keys(response.data || {}),
+      hasUser: !!response.data?.user,
+      hasProfile: !!response.data?.user?.profile
+    });
     return response;
   },
   (error) => {
     console.error('❌ API Error:', {
       status: error.response?.status,
       url: error.config?.url,
-      message: error.message
+      message: error.response?.data?.message || error.message
     });
     
     if (error.response?.status === 401) {
