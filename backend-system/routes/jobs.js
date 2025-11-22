@@ -1,6 +1,5 @@
 import express from 'express';
 import Job from '../models/Job.js';
-import User from '../models/User.js';
 import auth from '../middleware/auth.js';
 
 const router = express.Router();
@@ -10,36 +9,20 @@ const router = express.Router();
 // @access  Private (Company only)
 router.post('/', auth, async (req, res) => {
   try {
-    // Check if user is a company and approved
     if (req.user.userType !== 'company' || req.user.approvalStatus !== 'approved') {
-      return res.status(403).json({
-        message: 'Only approved companies can post jobs'
-      });
+      return res.status(403).json({ message: 'Only approved companies can post jobs' });
     }
 
     const {
-      title,
-      description,
-      requirements,
-      skillsRequired,
-      location,
-      jobType,
-      category,
-      salaryRange,
-      applicationDeadline,
-      applicationProcess,
-      externalLink,
-      applicationEmail
+      title, description, requirements, skillsRequired,
+      location, jobType, category, salaryRange,
+      applicationDeadline, applicationProcess, externalLink, applicationEmail
     } = req.body;
 
-    // Basic validation
     if (!title || !description || !requirements || !applicationDeadline) {
-      return res.status(400).json({
-        message: 'Title, description, requirements, and deadline are required'
-      });
+      return res.status(400).json({ message: 'Title, description, requirements, and deadline are required' });
     }
 
-    // Create new job
     const job = new Job({
       title,
       description,
@@ -53,14 +36,14 @@ router.post('/', auth, async (req, res) => {
       applicationProcess: applicationProcess || 'quick-apply',
       externalLink: externalLink || '',
       applicationEmail: applicationEmail || '',
-      company: req.user.id,
-      companyName: req.user.company.name
+      company: req.user.id,      
+      companyName: req.user.company?.name || ''   
     });
 
     await job.save();
 
     res.status(201).json({
-      message: 'Job posted successfully! It will be visible after verification.',
+      message: 'Job posted successfully!',
       job: {
         id: job._id,
         title: job.title,
@@ -72,68 +55,40 @@ router.post('/', auth, async (req, res) => {
         createdAt: job.createdAt
       }
     });
-
   } catch (error) {
     console.error('Create job error:', error);
-    res.status(500).json({
-      message: 'Server error creating job',
-      error: error.message
-    });
+    res.status(500).json({ message: 'Server error creating job', error: error.message });
   }
 });
 
 // @route   GET /api/jobs
 // @desc    Get all active jobs with filtering and pagination
-// @access  Public (for now, will add auth later)
+// @access  Public
 router.get('/', async (req, res) => {
   try {
     const {
-      page = 1,
-      limit = 10,
-      search,
-      category,
-      jobType,
-      location,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
+      page = 1, limit = 10, search, category, jobType, location,
+      sortBy = 'createdAt', sortOrder = 'desc'
     } = req.query;
 
     // Build filter object
-    const filter = { status: 'active', isVerified: true };
-    
-    // Text search
-    if (search) {
-      filter.$text = { $search: search };
-    }
-    
-    // Category filter
-    if (category) {
-      filter.category = category;
-    }
-    
-    // Job type filter
-    if (jobType) {
-      filter.jobType = jobType;
-    }
-    
-    // Location filter
-    if (location) {
-      filter.location = new RegExp(location, 'i');
-    }
+    const filter = { status: 'active' };   
 
-    // Sort options
+    if (search) filter.$text = { $search: search };
+    if (category) filter.category = category;
+    if (jobType) filter.jobType = jobType;
+    if (location) filter.location = new RegExp(location, 'i');
+
     const sortOptions = {};
     sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    // Execute query with pagination
     const jobs = await Job.find(filter)
       .sort(sortOptions)
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .select('-requirements -description') // Lightweight for listing
-      .populate('company', 'company.name company.industry');
+      .select('-requirements')
+      .populate('company', 'company.name company.industry company.logo');
 
-    // Get total count for pagination
     const total = await Job.countDocuments(filter);
 
     res.json({
@@ -147,13 +102,9 @@ router.get('/', async (req, res) => {
         hasPrev: page > 1
       }
     });
-
   } catch (error) {
     console.error('Get jobs error:', error);
-    res.status(500).json({
-      message: 'Server error retrieving jobs',
-      error: error.message
-    });
+    res.status(500).json({ message: 'Server error retrieving jobs', error: error.message });
   }
 });
 
@@ -163,29 +114,19 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const job = await Job.findById(req.params.id)
-      .populate('company', 'company.name company.description company.website company.industry company.address');
+      .populate('company', 'company.name company.description company.website company.industry');
 
     if (!job) {
-      return res.status(404).json({
-        message: 'Job not found'
-      });
+      return res.status(404).json({ message: 'Job not found' });
     }
 
-    // Increment view count
     job.views += 1;
     await job.save();
 
-    res.json({
-      message: 'Job details retrieved successfully',
-      job
-    });
-
+    res.json({ message: 'Job details retrieved successfully', job });
   } catch (error) {
     console.error('Get job details error:', error);
-    res.status(500).json({
-      message: 'Server error retrieving job details',
-      error: error.message
-    });
+    res.status(500).json({ message: 'Server error retrieving job details', error: error.message });
   }
 });
 
@@ -195,27 +136,17 @@ router.get('/:id', async (req, res) => {
 router.get('/company/my-jobs', auth, async (req, res) => {
   try {
     if (req.user.userType !== 'company') {
-      return res.status(403).json({
-        message: 'Only companies can access this endpoint'
-      });
+      return res.status(403).json({ message: 'Only companies can access this endpoint' });
     }
 
     const jobs = await Job.find({ company: req.user.id })
       .sort({ createdAt: -1 })
-      .select('-requirements -description'); // Lightweight for dashboard
+      .select('-requirements -description');
 
-    res.json({
-      message: 'Company jobs retrieved successfully',
-      jobs,
-      count: jobs.length
-    });
-
+    res.json({ message: 'Company jobs retrieved successfully', jobs, count: jobs.length });
   } catch (error) {
     console.error('Get company jobs error:', error);
-    res.status(500).json({
-      message: 'Server error retrieving company jobs',
-      error: error.message
-    });
+    res.status(500).json({ message: 'Server error retrieving company jobs', error: error.message });
   }
 });
 
@@ -225,18 +156,10 @@ router.get('/company/my-jobs', auth, async (req, res) => {
 router.put('/:id', auth, async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
 
-    if (!job) {
-      return res.status(404).json({
-        message: 'Job not found'
-      });
-    }
-
-    // Check if user owns this job
-    if (job.company.toString() !== req.user.id) {
-      return res.status(403).json({
-        message: 'Not authorized to update this job'
-      });
+    if (job.company.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to update this job' });
     }
 
     const allowedUpdates = [
@@ -252,7 +175,6 @@ router.put('/:id', auth, async (req, res) => {
       }
     });
 
-    // Reset verification if important fields change
     if (updates.title || updates.description || updates.requirements) {
       updates.isVerified = false;
     }
@@ -263,17 +185,30 @@ router.put('/:id', auth, async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    res.json({
-      message: 'Job updated successfully',
-      job: updatedJob
-    });
-
+    res.json({ message: 'Job updated successfully', job: updatedJob });
   } catch (error) {
     console.error('Update job error:', error);
-    res.status(500).json({
-      message: 'Server error updating job',
-      error: error.message
-    });
+    res.status(500).json({ message: 'Server error updating job', error: error.message });
+  }
+});
+
+// @route   DELETE /api/jobs/:id
+// @desc    Delete a job posting
+// @access  Private (Company owner or admin only)
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    if (job.company.toString() !== req.user.id.toString() && req.user.userType !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to delete this job' });
+    }
+
+    await Job.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Job deleted successfully', deletedJobId: req.params.id });
+  } catch (error) {
+    console.error('Delete job error:', error);
+    res.status(500).json({ message: 'Server error deleting job', error: error.message });
   }
 });
 

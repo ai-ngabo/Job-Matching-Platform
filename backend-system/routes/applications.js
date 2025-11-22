@@ -64,7 +64,7 @@ router.post('/job/:jobId', auth, async (req, res) => {
     const application = new Application({
       job: jobId,
       jobTitle: job.title,
-      company: job.company,
+      company: job.company,  
       companyName: job.companyName,
       applicant: req.user.id,
       applicantName: `${req.user.profile.firstName} ${req.user.profile.lastName}`.trim(),
@@ -168,16 +168,12 @@ router.get('/company/received', auth, async (req, res) => {
 
     // Build filter
     const filter = { company: req.user.id };
-    if (status) {
-      filter.status = status;
-    }
-    if (jobId) {
-      filter.job = jobId;
-    }
+    if (status) filter.status = status;
+    if (jobId) filter.job = jobId;
 
     const applications = await Application.find(filter)
       .populate('job', 'title location jobType category')
-      .populate('applicant', 'profile skills profile.documents.cv')
+      .populate('applicant', 'profile skills ')
       .sort({ appliedAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -203,7 +199,6 @@ router.get('/company/received', auth, async (req, res) => {
         hasPrev: page > 1
       }
     });
-
   } catch (error) {
     console.error('Get received applications error:', error);
     res.status(500).json({
@@ -212,7 +207,6 @@ router.get('/company/received', auth, async (req, res) => {
     });
   }
 });
-
 // @route   PUT /api/applications/:id/status
 // @desc    Update application status (Company only)
 // @access  Private (Company only)
@@ -237,7 +231,7 @@ router.put('/:id/status', auth, async (req, res) => {
     }
 
     // Check if company owns this application
-    if (application.company.toString() !== req.user.id) {
+    if (application.company.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         message: 'Not authorized to update this application'
       });
@@ -275,7 +269,6 @@ router.put('/:id/status', auth, async (req, res) => {
         statusHistory: application.statusHistory
       }
     });
-
   } catch (error) {
     console.error('Update application status error:', error);
     res.status(500).json({
@@ -294,12 +287,12 @@ router.get('/stats', auth, async (req, res) => {
 
     if (req.user.userType === 'jobseeker') {
       // Job seeker stats
-      const totalApplications = await Application.countDocuments({ 
-        applicant: req.user.id 
+      const totalApplications = await Application.countDocuments({
+        applicant: req.user.id   
       });
-      
+
       const statusCounts = await Application.aggregate([
-        { $match: { applicant: req.user.id } },
+        { $match: { applicant: req.user.id } },   
         { $group: { _id: '$status', count: { $sum: 1 } } }
       ]);
 
@@ -313,10 +306,10 @@ router.get('/stats', auth, async (req, res) => {
 
     } else if (req.user.userType === 'company') {
       // Company stats
-      const totalApplications = await Application.countDocuments({ 
-        company: req.user.id 
+      const totalApplications = await Application.countDocuments({
+        company: req.user.id
       });
-      
+
       const statusCounts = await Application.aggregate([
         { $match: { company: req.user.id } },
         { $group: { _id: '$status', count: { $sum: 1 } } }
@@ -341,7 +334,6 @@ router.get('/stats', auth, async (req, res) => {
       message: 'Application statistics retrieved successfully',
       stats
     });
-
   } catch (error) {
     console.error('Get application stats error:', error);
     res.status(500).json({

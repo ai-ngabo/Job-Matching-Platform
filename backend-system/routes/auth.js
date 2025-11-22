@@ -155,7 +155,7 @@ router.post('/login', async (req, res) => {
     // Check approval for companies
     if (user.userType === 'company' && user.approvalStatus !== 'approved') {
       return res.status(403).json({
-        message: 'Company account pending approval',
+        message: 'Company account not yet approved',
         approvalStatus: user.approvalStatus
       });
     }
@@ -168,13 +168,14 @@ router.post('/login', async (req, res) => {
       token,
       user: {
         id: user._id,
-        email: user.email,
         userType: user.userType,
+        email: user.email,
         profile: user.profile,
         company: user.company,
         approvalStatus: user.approvalStatus
       }
     });
+
 
   } catch (error) {
     console.error('❌ Login error:', error);

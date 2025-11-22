@@ -38,6 +38,25 @@ const userSchema = new mongoose.Schema({
       type: String,
       enum: ['high-school', 'diploma', 'bachelors', 'masters', 'phd'],
       default: 'high-school'
+    },
+    documents: {
+      cv: {
+        filename: { type: String, default: '' },
+        url: { type: String, default: '' },
+        publicId: { type: String, default: '' },
+        uploadedAt: { type: Date, default: null },
+        fileSize: { type: Number, default: 0 },
+        format: { type: String, default: '' }
+      },
+      idDocument: {
+        filename: { type: String, default: '' },
+        url: { type: String, default: '' },
+        publicId: { type: String, default: '' },
+        uploadedAt: { type: Date, default: null },
+        fileSize: { type: Number, default: 0 },
+        format: { type: String, default: '' },
+        idType: { type: String, default: 'national_id' }
+      }
     }
   },
   
@@ -72,7 +91,10 @@ const userSchema = new mongoose.Schema({
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending'
   },
-  
+  rejectionReason: { 
+    type: String, 
+    default: '' 
+  },
   createdAt: {
     type: Date,
     default: Date.now
