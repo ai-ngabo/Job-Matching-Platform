@@ -1,11 +1,13 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+// Ensure /api is included in the baseURL
+const FULL_API_URL = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
 
-console.log('🔗 Connecting to backend at:', API_BASE_URL);
+console.log('🔗 Connecting to backend at:', FULL_API_URL);
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: FULL_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
