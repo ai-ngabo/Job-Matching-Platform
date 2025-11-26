@@ -34,7 +34,8 @@ const JobListings = () => {
       setLoading(true);
       setError('');
       
-      const response = await fetch('http://localhost:5000/api/jobs?limit=50&sortBy=createdAt&sortOrder=desc', {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/jobs?limit=50&sortBy=createdAt&sortOrder=desc`, {
         headers: {
           'Content-Type': 'application/json'
         }

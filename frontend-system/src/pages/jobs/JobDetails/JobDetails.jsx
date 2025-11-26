@@ -32,7 +32,8 @@ const JobDetails = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const url = `http://localhost:5000/api/jobs/${jobId}`; 
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const url = `${apiBase}/api/jobs/${jobId}`; 
       console.log('  → URL:', url);
 
       const response = await fetch(url, { headers });
@@ -53,7 +54,8 @@ const JobDetails = () => {
       // If company is populated, fetch full company details
       if (jobData.company && typeof jobData.company === 'object' && jobData.company._id) {
         try {
-          const companyResponse = await fetch(`http://localhost:5000/api/users/profile`, {
+          const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+          const companyResponse = await fetch(`${apiBase}/api/users/profile`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -117,7 +119,8 @@ const JobDetails = () => {
       setError(null);
 
       // ✅ FIXED: Use the correct endpoint from your backend
-      const response = await fetch(`http://localhost:5000/api/applications/job/${jobId}`, {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/applications/job/${jobId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

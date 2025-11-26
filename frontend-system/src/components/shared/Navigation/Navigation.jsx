@@ -32,7 +32,8 @@ const Navigation = () => {
       const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
       if (!token) return;
 
-      const res = await fetch('http://localhost:5000/api/applications/stats', {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const res = await fetch(`${apiBase}/api/applications/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

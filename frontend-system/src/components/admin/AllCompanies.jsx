@@ -16,7 +16,8 @@ const AllCompanies = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      const response = await fetch('http://localhost:5000/api/admin/companies', {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/admin/companies`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
