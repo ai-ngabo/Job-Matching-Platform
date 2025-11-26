@@ -69,5 +69,15 @@ export const authService = {
       !!localStorage.getItem('authToken') ||
       !!sessionStorage.getItem('authToken')
     );
+  },
+
+  async requestPasswordReset(email) {
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data;
+  },
+
+  async resetPassword(payload) {
+    const response = await api.post('/auth/reset-password', payload);
+    return response.data;
   }
 };

@@ -6,6 +6,8 @@ import LandingPage from '../src/pages/dashboard/LandingPage/LandingPage';
 import Navigation from './components/shared/Navigation/Navigation';   
 import Login from './pages/auth/Login/Login';
 import Register from './pages/auth/Register/Register';
+import ForgotPassword from './pages/auth/ForgotPassword/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword/ResetPassword';
 import Dashboard from './pages/dashboard/Dashboard/Dashboard';        
 import AdminDashboard from './pages/dashboard/AdminDashboard/AdminDashboard';
 import JobListings from './pages/jobs/JobListings/JobListings';       
@@ -15,6 +17,7 @@ import JobManagement from './pages/jobs/JobManagement/JobManagement';
 import Applications from './pages/applications/Applications/Applications';
 import Profile from './pages/profile/Profile/Profile';
 import RoleBasedRoute from './components/shared/RoleBasedRoute/RoleBasedRoute';
+import Chatbot from './components/shared/Chatbot/Chatbot';
 import './App.css';
 
 const BackendStatus = () => {
@@ -81,6 +84,8 @@ function App() {
               <Route path="/home" element={<LandingPage />} />        
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
               <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+              <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+              <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
               
               {/* Protected Routes - Role Based */}
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -145,6 +150,7 @@ function App() {
               <Route path="*" element={<Navigate to="/dashboard" />} />
             </Routes>
           </main>
+          <Chatbot />
         </div>
       </AuthProvider>
     </BrowserRouter>

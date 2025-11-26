@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Bookmark } from 'lucide-react';
+import { Bell, Bookmark, Briefcase } from 'lucide-react';
 import './Navigation.css';
 
 const Navigation = () => {
@@ -81,14 +81,23 @@ const Navigation = () => {
             Jobs
           </button>
           {user?.userType === 'jobseeker' && (
-            <button 
-              className="nav-item saved-jobs-btn"
-              onClick={() => navigate('/saved-jobs')}
-            >
-              <Bookmark size={18} />
-              Saved
-              {savedCount > 0 && <span className="notification-badge">{savedCount}</span>}
-            </button>
+            <>
+              <button 
+                className="nav-item saved-jobs-btn"
+                onClick={() => navigate('/saved-jobs')}
+              >
+                <Bookmark size={18} />
+                Saved
+                {savedCount > 0 && <span className="notification-badge">{savedCount}</span>}
+              </button>
+              <button 
+                className="nav-item applications-btn"
+                onClick={() => navigate('/applications')}
+              >
+                <Briefcase size={18} />
+                Applications
+              </button>
+            </>
           )}
           {user?.userType === 'company' && (
             <button 

@@ -24,10 +24,18 @@ const JobDetails = () => {
       console.log('📋 Fetching job details for jobId:', jobId); 
       setLoading(true);
 
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const url = `http://localhost:5000/api/jobs/${jobId}`; 
       console.log('  → URL:', url);
 
-      const response = await fetch(url);
+      const response = await fetch(url, { headers });
       console.log('  ← Response status:', response.status);
 
       if (!response.ok) {
@@ -41,6 +49,21 @@ const JobDetails = () => {
       // API returns { job: {...}, message: '...' }
       const jobData = data.job || data;
       console.log('  ✅ Job data extracted:', jobData);
+
+      // If company is populated, fetch full company details
+      if (jobData.company && typeof jobData.company === 'object' && jobData.company._id) {
+        try {
+          const companyResponse = await fetch(`http://localhost:5000/api/users/profile`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          // Company data is already in jobData.company from populate
+        } catch (err) {
+          console.warn('Could not fetch additional company data:', err);
+        }
+      }
 
       setJob(jobData);
       setError(null);
@@ -182,10 +205,10 @@ const JobDetails = () => {
           {/* Company Header */}
           <div className="company-header">
             <div className="company-logo-large">
-              {job.company?.company?.logo ? (
+              {job.company?.company?.logo || job.company?.logo ? (
                 <img 
-                  src={job.company?.company?.logo} 
-                  alt={job.company?.company?.name}
+                  src={job.company?.company?.logo || job.company?.logo} 
+                  alt={job.company?.company?.name || job.companyName || 'Company'}
                   className="company-logo-img"
                 />
               ) : (
@@ -194,9 +217,9 @@ const JobDetails = () => {
             </div>
             <div className="company-info">
               <h1 className="job-title">{job.title}</h1>
-              <p className="company-name">{job.company?.company?.name || 'Company'}</p>
+              <p className="company-name">{job.company?.company?.name || job.companyName || 'Company'}</p>
               <p className="company-industry">
-                {job.company?.company?.industry || 'Industry not specified'}
+                {job.company?.company?.industry || job.company?.industry || 'Industry not specified'}
               </p>
             </div>
           </div>
@@ -330,15 +353,15 @@ const JobDetails = () => {
           </div>
 
           {/* Company Contact Card */}
-          {job.company && (
+          {(job.company || job.companyName) && (
             <div className="company-card">
               <h3>About Company</h3>
               <p className="company-about">
-                {job.company.company?.about || 'Company information not available'}
+                {job.company?.company?.description || job.company?.description || 'Company information not available'}
               </p>
-              {job.company.company?.website && (
+              {(job.company?.company?.website || job.company?.website) && (
                 <a 
-                  href={job.company.company.website}
+                  href={job.company?.company?.website || job.company?.website}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="company-website-link"
