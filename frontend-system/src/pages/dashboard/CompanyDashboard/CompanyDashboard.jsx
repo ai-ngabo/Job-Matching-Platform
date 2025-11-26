@@ -68,6 +68,16 @@ const CompanyDashboard = () => {
     }
   };
 
+  const getInitials = (firstName, lastName) => {
+    return `${firstName?.charAt(0) || 'U'}${lastName?.charAt(0) || 'S'}`.toUpperCase();
+  };
+
+  const getProfilePictureUrl = (profilePicture) => {
+    if (!profilePicture) return null;
+    if (profilePicture.startsWith('http')) return profilePicture;
+    return `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}${profilePicture}`;
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'Recently';
     const date = new Date(dateString);
@@ -171,7 +181,15 @@ const CompanyDashboard = () => {
               applications.slice(0, 3).map((application) => (
                 <div key={application._id} className="application-item">
                   <div className="app-avatar">
-                    {application.applicant?.profile?.firstName?.charAt(0) || 'A'}
+                    {getProfilePictureUrl(application.applicant?.profile?.profilePicture) ? (
+                      <img 
+                        src={getProfilePictureUrl(application.applicant.profile.profilePicture)}
+                        alt={`${application.applicant?.profile?.firstName} ${application.applicant?.profile?.lastName}`}
+                        className="app-avatar-img"
+                      />
+                    ) : (
+                      getInitials(application.applicant?.profile?.firstName, application.applicant?.profile?.lastName)
+                    )}
                   </div>
                   <div className="app-info">
                     <h4>{application.applicant?.profile?.firstName} {application.applicant?.profile?.lastName}</h4>

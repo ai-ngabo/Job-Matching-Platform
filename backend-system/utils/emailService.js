@@ -158,3 +158,89 @@ export const sendPasswordResetEmail = async ({ email, firstName, resetUrl, expir
   }
 };
 
+const buildApplicationStatusHtml = ({ candidateName, companyName, jobTitle, newStatus, note }) => {
+  const statusMessages = {
+    'submitted': 'Your application has been received and is waiting for review.',
+    'reviewing': 'Your application is now under review by the hiring team.',
+    'under review': 'Your application is now under review by the hiring team.',
+    'shortlisted': 'Congratulations! You have been shortlisted for this position. The hiring team will contact you soon with next steps.',
+    'interview': 'Excellent news! You have been selected for an interview. Please check your email for interview scheduling details.',
+    'accepted': 'Congratulations! You have been selected for this position. The hiring team will contact you soon with offer details.',
+    'rejected': 'Thank you for your interest in this position. Unfortunately, you were not selected at this time. We encourage you to apply for other suitable positions.'
+  };
+
+  const statusEmoji = {
+    'submitted': '📋',
+    'reviewing': '👀',
+    'under review': '👀',
+    'shortlisted': '⭐',
+    'interview': '💼',
+    'accepted': '✅',
+    'rejected': '❌'
+  };
+
+  const statusMessage = statusMessages[newStatus.toLowerCase()] || 'Your application status has been updated.';
+  const emoji = statusEmoji[newStatus.toLowerCase()] || '📧';
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 600px; margin: 0 auto;">
+      <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #e2e8f0;">
+        <h1 style="margin: 0; font-size: 2rem;">${emoji}</h1>
+        <h2 style="margin: 10px 0 0 0; color: #0073e6;">Application Status Update</h2>
+      </div>
+      
+      <div style="padding: 20px 0;">
+        <p>Hi ${candidateName},</p>
+        
+        <div style="background: #f8fafc; padding: 15px; border-left: 4px solid #0073e6; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0 0 10px 0;"><strong>Job Position:</strong> ${jobTitle}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Company:</strong> ${companyName}</p>
+          <p style="margin: 0;"><strong>New Status:</strong> <span style="background: ${getStatusColor(newStatus)}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600; text-transform: capitalize;">${newStatus}</span></p>
+        </div>
+        
+        <p>${statusMessage}</p>
+        
+        ${note ? `<div style="background: #fffbeb; padding: 15px; border-left: 4px solid #fbbf24; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0 0 10px 0;"><strong>Note from the hiring team:</strong></p>
+          <p style="margin: 0; color: #92400e;">${note}</p>
+        </div>` : ''}
+        
+        <p style="margin-top: 30px;">
+          <a href="http://localhost:3000/applications" style="background: #0073e6; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">View Your Applications</a>
+        </p>
+        
+        <p style="margin-top: 30px; color: #64748b; font-size: 14px;">If you have any questions, please feel free to contact us at support@jobify.com</p>
+      </div>
+      
+      <div style="border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 20px; text-align: center; font-size: 12px; color: #94a3af;">
+        <p>This message was sent automatically by JobIFY. Please do not reply to this email.</p>
+      </div>
+    </div>
+  `;
+};
+
+const getStatusColor = (status) => {
+  const colors = {
+    'submitted': '#3b82f6',
+    'reviewing': '#f59e0b',
+    'under review': '#f59e0b',
+    'shortlisted': '#10b981',
+    'interview': '#0369a1',
+    'accepted': '#059669',
+    'rejected': '#ef4444'
+  };
+  return colors[status.toLowerCase()] || '#6b7280';
+};
+
+export const sendApplicationStatusEmail = async ({ email, candidateName, companyName, jobTitle, newStatus, note }) => {
+  try {
+    await sendEmail({
+      to: email,
+      subject: `Application Status Update: ${newStatus} - ${jobTitle}`,
+      html: buildApplicationStatusHtml({ candidateName, companyName, jobTitle, newStatus, note })
+    });
+  } catch (error) {
+    console.error('❌ Failed to send application status email:', error.message);
+  }
+};
+

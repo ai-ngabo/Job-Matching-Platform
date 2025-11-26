@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { chatbotService } from '../../../services/chatbotService';
 import './Chatbot.css';
 
 const Chatbot = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -68,6 +70,11 @@ const Chatbot = () => {
       setLoading(false);
       inputRef.current?.focus();
     }
+  };
+
+  const handleJobClick = (jobId) => {
+    navigate(`/jobs/${jobId}`);
+    setIsOpen(false);
   };
 
   const handleToggle = () => {
@@ -142,7 +149,11 @@ const Chatbot = () => {
               {msg.jobs && msg.jobs.length > 0 && (
                 <div className="chatbot-jobs-list">
                   {msg.jobs.map((job) => (
-                    <div key={job._id} className="chatbot-job-item">
+                    <div 
+                      key={job._id} 
+                      className="chatbot-job-item"
+                      onClick={() => handleJobClick(job._id)}
+                    >
                       <h4>{job.title}</h4>
                       <p>{job.companyName} • {job.location} • {job.jobType}</p>
                     </div>

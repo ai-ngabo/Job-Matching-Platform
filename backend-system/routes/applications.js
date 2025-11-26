@@ -3,6 +3,7 @@ import Application from '../models/Application.js';
 import Job from '../models/Job.js';
 import User from '../models/User.js';
 import auth from '../middleware/auth.js';
+import { sendApplicationStatusEmail } from '../utils/emailService.js';
 
 const router = express.Router();
 
@@ -222,7 +223,9 @@ router.put('/:id/status', auth, async (req, res) => {
     const applicationId = req.params.id;
 
     const application = await Application.findById(applicationId)
-      .populate('job', 'title');
+      .populate('job', 'title')
+      .populate('company', 'name')
+      .populate('applicant', 'email profile');
 
     if (!application) {
       return res.status(404).json({
@@ -231,11 +234,13 @@ router.put('/:id/status', auth, async (req, res) => {
     }
 
     // Check if company owns this application
-    if (application.company.toString() !== req.user.id.toString()) {
+    if (application.company._id.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         message: 'Not authorized to update this application'
       });
     }
+
+    const previousStatus = application.status;
 
     // Update status
     application.status = status;
@@ -258,6 +263,29 @@ router.put('/:id/status', auth, async (req, res) => {
     }
 
     await application.save();
+
+    // Send email notification to applicant
+    try {
+      const applicantEmail = application.applicant?.email || application.applicantEmail;
+      const candidateName = application.applicantName || `${application.applicant?.profile?.firstName} ${application.applicant?.profile?.lastName}`;
+      const companyName = application.company?.name || 'Our Company';
+      const jobTitle = application.jobTitle || application.job?.title || 'Position';
+
+      if (applicantEmail) {
+        await sendApplicationStatusEmail({
+          email: applicantEmail,
+          candidateName: candidateName.trim(),
+          companyName: companyName,
+          jobTitle: jobTitle,
+          newStatus: status,
+          note: note || ''
+        });
+        console.log(`📧 Application status email sent to ${applicantEmail}`);
+      }
+    } catch (emailError) {
+      console.error('Error sending status email:', emailError.message);
+      // Don't fail the request if email fails
+    }
 
     res.json({
       message: 'Application status updated successfully',

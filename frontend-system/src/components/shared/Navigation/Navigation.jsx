@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Bookmark, Briefcase } from 'lucide-react';
+import { Bell, Bookmark, Briefcase, Menu, X, LogOut } from 'lucide-react';
 import './Navigation.css';
 
 const Navigation = () => {
@@ -9,6 +9,7 @@ const Navigation = () => {
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -53,8 +54,18 @@ const Navigation = () => {
   };
 
   const handleLogout = () => {
+    setMobileMenuOpen(false);
     logout();
     navigate('/login');
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
+  const handleNavigation = (path) => {
+    navigate(path);
+    closeMobileMenu();
   };
 
   if (!isAuthenticated) return null;
@@ -67,24 +78,26 @@ const Navigation = () => {
           <span className="brand-tagline">AI Jobs</span>
         </div>
         
-        <div className="navbar-menu">
+        {/* Desktop Navigation */}
+        <div className="navbar-menu desktop-menu">
           <button 
             className="nav-item"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => handleNavigation('/dashboard')}
           >
             Dashboard
           </button>
-          <button 
-            className="nav-item"
-            onClick={() => navigate('/jobs')}
-          >
-            Jobs
-          </button>
-          {user?.userType === 'jobseeker' && (
+          
+          {user?.userType === 'jobseeker' ? (
             <>
               <button 
+                className="nav-item"
+                onClick={() => handleNavigation('/jobs')}
+              >
+                Jobs
+              </button>
+              <button 
                 className="nav-item saved-jobs-btn"
-                onClick={() => navigate('/saved-jobs')}
+                onClick={() => handleNavigation('/saved-jobs')}
               >
                 <Bookmark size={18} />
                 Saved
@@ -92,32 +105,41 @@ const Navigation = () => {
               </button>
               <button 
                 className="nav-item applications-btn"
-                onClick={() => navigate('/applications')}
+                onClick={() => handleNavigation('/applications')}
               >
                 <Briefcase size={18} />
                 Applications
               </button>
             </>
-          )}
-          {user?.userType === 'company' && (
-            <button 
-              className="nav-item notifications-btn"
-              onClick={() => navigate('/applications')}
-            >
-              <Bell size={18} />
-              Applications
-              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-            </button>
-          )}
+          ) : user?.userType === 'company' ? (
+            <>
+              <button 
+                className="nav-item"
+                onClick={() => handleNavigation('/jobs/manage')}
+              >
+                <Briefcase size={18} />
+                Manage Jobs
+              </button>
+              <button 
+                className="nav-item notifications-btn"
+                onClick={() => handleNavigation('/applications')}
+              >
+                <Bell size={18} />
+                Applications
+                {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+              </button>
+            </>
+          ) : null}
+          
           <button 
             className="nav-item"
-            onClick={() => navigate('/profile')}
+            onClick={() => handleNavigation('/profile')}
           >
             Profile
           </button>
         </div>
         
-        <div className="navbar-user">
+        <div className="navbar-user desktop-user">
           <span className="user-info">
             {user.userType === 'jobseeker' 
               ? `👤 ${user.profile?.firstName} ${user.profile?.lastName}`
@@ -131,7 +153,121 @@ const Navigation = () => {
             Logout
           </button>
         </div>
+
+        {/* Hamburger Menu Button */}
+        <button 
+          className="hamburger-menu"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </div>
+
+      {/* Mobile Navigation Sidebar */}
+      {mobileMenuOpen && (
+        <div className="mobile-menu-overlay" onClick={closeMobileMenu}>
+          <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-menu-header">
+              <h3>Menu</h3>
+              <button 
+                className="close-btn"
+                onClick={closeMobileMenu}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="mobile-menu-user-info">
+              <div className="user-initials">
+                {user.userType === 'jobseeker' 
+                  ? `${user.profile?.firstName?.charAt(0) || 'J'}${user.profile?.lastName?.charAt(0) || 'S'}`
+                  : `${user.company?.name?.charAt(0) || 'C'}`
+                }
+              </div>
+              <div>
+                <p className="user-name">
+                  {user.userType === 'jobseeker' 
+                    ? `${user.profile?.firstName} ${user.profile?.lastName}`
+                    : user.company?.name
+                  }
+                </p>
+                <p className="user-role">{user.userType === 'jobseeker' ? 'Job Seeker' : 'Company'}</p>
+              </div>
+            </div>
+
+            <div className="mobile-menu-items">
+              <button 
+                className="mobile-nav-item"
+                onClick={() => handleNavigation('/dashboard')}
+              >
+                Dashboard
+              </button>
+              
+              {user?.userType === 'jobseeker' ? (
+                <>
+                  <button 
+                    className="mobile-nav-item"
+                    onClick={() => handleNavigation('/jobs')}
+                  >
+                    Jobs
+                  </button>
+                  <button 
+                    className="mobile-nav-item"
+                    onClick={() => handleNavigation('/saved-jobs')}
+                  >
+                    <Bookmark size={18} />
+                    Saved Jobs
+                    {savedCount > 0 && <span className="notification-badge">{savedCount}</span>}
+                  </button>
+                  <button 
+                    className="mobile-nav-item"
+                    onClick={() => handleNavigation('/applications')}
+                  >
+                    <Briefcase size={18} />
+                    Applications
+                  </button>
+                </>
+              ) : user?.userType === 'company' ? (
+                <>
+                  <button 
+                    className="mobile-nav-item"
+                    onClick={() => handleNavigation('/jobs/manage')}
+                  >
+                    <Briefcase size={18} />
+                    Manage Jobs
+                  </button>
+                  <button 
+                    className="mobile-nav-item"
+                    onClick={() => handleNavigation('/applications')}
+                  >
+                    <Bell size={18} />
+                    Applications
+                    {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+                  </button>
+                </>
+              ) : null}
+              
+              <button 
+                className="mobile-nav-item"
+                onClick={() => handleNavigation('/profile')}
+              >
+                Profile
+              </button>
+            </div>
+
+            <div className="mobile-menu-footer">
+              <button 
+                className="mobile-logout-btn"
+                onClick={handleLogout}
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
