@@ -27,21 +27,30 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5173',
-      'https://jobify-9gwmxxw9q-ai-ngabos-projects.vercel.app', // Production frontend
-      process.env.FRONTEND_URL // From environment
-    ].filter(Boolean); // Remove any undefined/null values
+      'https://jobify-9gwmxxw9q-ai-ngabos-projects.vercel.app',
+      'https://jobify-rw.vercel.app',
+      process.env.FRONTEND_URL
+    ].filter(url => url && url.length > 0);
     
-    console.log('🔒 CORS Check - Origin:', origin, 'Allowed:', allowedOrigins);
+    console.log('🔒 CORS - Incoming origin:', origin);
+    console.log('🔒 CORS - Allowed origins:', allowedOrigins);
     
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Allow requests with no origin (like mobile apps or Postman)
+    // or if origin matches allowed list
+    if (!origin) {
+      return callback(null, true);
     }
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
 
 // Middleware
