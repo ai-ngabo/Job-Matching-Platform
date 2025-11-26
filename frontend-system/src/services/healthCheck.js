@@ -2,7 +2,7 @@ import api from './api';
 
 export const healthCheck = async () => {
   try {
-    const response = await api.get('/api/health');
+    const response = await api.get('/health');
     console.log('✅ Backend health check:', response.data);
     return true;
   } catch (error) {
