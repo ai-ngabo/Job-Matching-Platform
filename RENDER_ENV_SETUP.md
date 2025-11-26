@@ -48,7 +48,7 @@ GOOGLE_CLIENT_ID: 618539107494-1g19jfnogko0j5kog8fdklp48b68mk1j.apps.googleuserc
 
 ### Frontend URL (CRITICAL for CORS)
 ```
-FRONTEND_URL: https://jobify-9gwmxxw9q-ai-ngabos-projects.vercel.app
+FRONTEND_URL: https://jobify-rw.vercel.app
 ```
 
 ### Production Settings
@@ -73,7 +73,7 @@ NODE_ENV: production
 | `SMTP_FROM` | `JobIFY <jobifyrwanda@gmail.com>` |
 | `ADMIN_ALERT_EMAIL` | `admin@jobify.com` |
 | `GOOGLE_CLIENT_ID` | `618539107494-1g19jfnogko0j5kog8fdklp48b68mk1j.apps.googleusercontent.com` |
-| `FRONTEND_URL` | `https://jobify-9gwmxxw9q-ai-ngabos-projects.vercel.app` |
+| `FRONTEND_URL` | `https://jobify-rw.vercel.app` |
 | `NODE_ENV` | `production` |
 
 ## After Adding Variables

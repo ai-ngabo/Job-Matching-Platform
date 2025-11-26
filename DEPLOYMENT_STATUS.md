@@ -5,7 +5,9 @@
 ### Frontend Deployment ✅
 - **Platform**: Vercel
 - **Project Name**: jobify-rw
-- **Live URL**: https://jobify-9gwmxxw9q-ai-ngabos-projects.vercel.app
+- **Live URLs**:
+  - Generated: https://jobify-9gwmxxw9q-ai-ngabos-projects.vercel.app
+  - Custom Domain: https://jobify-rw.vercel.app ⭐ **Preferred**
 - **Environment Variables Configured**:
   - `VITE_API_BASE_URL`: https://job-matching-platform-zvzw.onrender.com/api
   - `VITE_GOOGLE_CLIENT_ID`: 618539107494-1g19jfnogko0j5kog8fdklp48b68mk1j.apps.googleusercontent.com

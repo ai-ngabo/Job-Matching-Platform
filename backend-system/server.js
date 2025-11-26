@@ -27,9 +27,9 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5173',
-      'https://jobify-9gwmxxw9q-ai-ngabos-projects.vercel.app',
-      'https://jobify-rw.vercel.app',
-      process.env.FRONTEND_URL
+      'https://jobify-9gwmxxw9q-ai-ngabos-projects.vercel.app', // Generated Vercel URL
+      'https://jobify-rw.vercel.app',                            // Custom Vercel domain
+      process.env.FRONTEND_URL                                   // Environment variable
     ].filter(url => url && url.length > 0);
     
     console.log('🔒 CORS - Incoming origin:', origin);
