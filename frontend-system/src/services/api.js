@@ -1,8 +1,7 @@
 import axios from 'axios';
+import { getAPIBaseURL } from '../config/apiConfig';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-// Ensure /api is included in the baseURL
-const FULL_API_URL = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+const FULL_API_URL = getAPIBaseURL();
 
 console.log('🔗 Connecting to backend at:', FULL_API_URL);
 
