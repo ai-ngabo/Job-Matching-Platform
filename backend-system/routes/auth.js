@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import {
   sendRegistrationEmail,
@@ -305,46 +306,24 @@ router.post('/google-login', async (req, res) => {
       });
     }
 
-    // For now, we'll create a simple implementation
-    // In production, you would verify the token with Google's API
-    // Using: https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=TOKEN
-    // Or using google-auth-library: const client = new google.auth.OAuth2Client(clientId)
+    // Initialize Google OAuth client
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
     
-    // For demo purposes, we'll parse the basic info from token
-    // In production, properly verify the token:
     try {
-      // This is a placeholder - you should use the official google-auth-library
-      // Install with: npm install google-auth-library
-      // Then import and verify properly
-      
-      // For now, send an error indicating OAuth needs configuration
-      console.warn('⚠️ Google OAuth token received but verification not fully configured');
-      console.warn('📋 To enable Google OAuth:');
-      console.warn('1. Install google-auth-library: npm install google-auth-library');
-      console.warn('2. Set GOOGLE_CLIENT_ID in .env');
-      console.warn('3. Uncomment the verification code below');
-
-      return res.status(503).json({
-        message: 'Google OAuth is not yet fully configured on the server',
-        instruction: 'Please configure Google OAuth credentials in the backend'
-      });
-
-      /* Uncomment this code once google-auth-library is installed and configured:
-      
-      import { OAuth2Client } from 'google-auth-library';
-      
-      const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+      // Verify the token with Google
       const ticket = await client.verifyIdToken({
         idToken: token,
         audience: process.env.GOOGLE_CLIENT_ID
       });
-      
+
       const payload = ticket.getPayload();
       const googleId = payload.sub;
       const email = payload.email;
-      const firstName = payload.given_name;
-      const lastName = payload.family_name;
+      const firstName = payload.given_name || '';
+      const lastName = payload.family_name || '';
       const profilePicture = payload.picture;
+
+      console.log('✅ Google OAuth verified for:', email);
 
       // Check if user exists
       let user = await User.findOne({ email });
@@ -358,27 +337,33 @@ router.post('/google-login', async (req, res) => {
           profile: {
             firstName,
             lastName,
-            profilePicture: {
-              url: profilePicture
-            }
+            avatar: profilePicture ? { url: profilePicture } : null
           },
-          // Generate a random password since Google users might not set one
+          // Generate a random password since Google users don't set one
           password: crypto.randomBytes(32).toString('hex')
         });
 
         await user.save();
         
+        console.log('📝 New user created via Google OAuth:', email);
+        
         // Send welcome email
-        await sendRegistrationEmail({
-          email,
-          firstName,
-          userType: 'jobseeker',
-          companyName: null
-        });
+        try {
+          await sendRegistrationEmail({
+            email,
+            firstName,
+            userType: 'jobseeker',
+            companyName: null
+          });
+        } catch (emailErr) {
+          console.warn('⚠️ Could not send welcome email:', emailErr.message);
+        }
       }
 
       // Generate JWT token
       const authToken = generateToken(user._id);
+
+      console.log('✅ Google login successful:', email);
 
       res.json({
         message: 'Google authentication successful',
@@ -388,15 +373,15 @@ router.post('/google-login', async (req, res) => {
           email: user.email,
           userType: user.userType,
           profile: user.profile,
-          company: user.company
+          company: user.company,
+          approvalStatus: user.approvalStatus
         }
       });
-      */
 
     } catch (verifyError) {
-      console.error('Google token verification failed:', verifyError.message);
+      console.error('❌ Google token verification failed:', verifyError.message);
       return res.status(401).json({
-        message: 'Invalid Google token',
+        message: 'Invalid Google token. Please try again.',
         error: verifyError.message
       });
     }
