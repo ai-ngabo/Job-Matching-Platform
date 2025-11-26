@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import './Register.css';
@@ -39,6 +39,71 @@ const Register = () => {
   
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  // Initialize Google SDK
+  useEffect(() => {
+    // Load Google SDK
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1234567890-abcdefghijklmnop.apps.googleusercontent.com',
+          callback: handleGoogleSuccess
+        });
+      }
+    };
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  const handleGoogleSuccess = async (response) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Send token to backend for verification
+      const res = await fetch('http://localhost:5000/api/auth/google-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          token: response.credential
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Google authentication failed');
+      }
+
+      // Store token
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+
+      // Navigate to dashboard or complete profile based on user data
+      if (data.user?.profile?.firstName || data.user?.company?.name) {
+        navigate('/dashboard');
+      } else {
+        // User needs to complete their profile
+        navigate('/profile');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to authenticate with Google');
+      console.error('Google authentication error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getSteps = () =>
     formData.userType === 'company'
@@ -640,6 +705,15 @@ const Register = () => {
               type="button"
               className="google-button"
               disabled={loading}
+              onClick={() => {
+                if (window.google) {
+                  window.google.accounts.id.renderButton(
+                    document.querySelector('.google-button-renderer') || document.querySelector('.google-button'),
+                    { theme: 'outline', size: 'large', text: 'center' }
+                  );
+                  window.google.accounts.id.prompt();
+                }
+              }}
             >
               <span className="google-icon" aria-hidden="true">
                 <svg viewBox="0 0 18 18" focusable="false">

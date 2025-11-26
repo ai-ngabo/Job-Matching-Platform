@@ -292,4 +292,122 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// @route   POST /api/auth/google-login
+// @desc    Authenticate user with Google OAuth token
+// @access  Public
+router.post('/google-login', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        message: 'Google token is required'
+      });
+    }
+
+    // For now, we'll create a simple implementation
+    // In production, you would verify the token with Google's API
+    // Using: https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=TOKEN
+    // Or using google-auth-library: const client = new google.auth.OAuth2Client(clientId)
+    
+    // For demo purposes, we'll parse the basic info from token
+    // In production, properly verify the token:
+    try {
+      // This is a placeholder - you should use the official google-auth-library
+      // Install with: npm install google-auth-library
+      // Then import and verify properly
+      
+      // For now, send an error indicating OAuth needs configuration
+      console.warn('⚠️ Google OAuth token received but verification not fully configured');
+      console.warn('📋 To enable Google OAuth:');
+      console.warn('1. Install google-auth-library: npm install google-auth-library');
+      console.warn('2. Set GOOGLE_CLIENT_ID in .env');
+      console.warn('3. Uncomment the verification code below');
+
+      return res.status(503).json({
+        message: 'Google OAuth is not yet fully configured on the server',
+        instruction: 'Please configure Google OAuth credentials in the backend'
+      });
+
+      /* Uncomment this code once google-auth-library is installed and configured:
+      
+      import { OAuth2Client } from 'google-auth-library';
+      
+      const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+      const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID
+      });
+      
+      const payload = ticket.getPayload();
+      const googleId = payload.sub;
+      const email = payload.email;
+      const firstName = payload.given_name;
+      const lastName = payload.family_name;
+      const profilePicture = payload.picture;
+
+      // Check if user exists
+      let user = await User.findOne({ email });
+
+      if (!user) {
+        // Create new user from Google data
+        user = new User({
+          email,
+          googleId,
+          userType: 'jobseeker', // Default to jobseeker, can be updated later
+          profile: {
+            firstName,
+            lastName,
+            profilePicture: {
+              url: profilePicture
+            }
+          },
+          // Generate a random password since Google users might not set one
+          password: crypto.randomBytes(32).toString('hex')
+        });
+
+        await user.save();
+        
+        // Send welcome email
+        await sendRegistrationEmail({
+          email,
+          firstName,
+          userType: 'jobseeker',
+          companyName: null
+        });
+      }
+
+      // Generate JWT token
+      const authToken = generateToken(user._id);
+
+      res.json({
+        message: 'Google authentication successful',
+        token: authToken,
+        user: {
+          id: user._id,
+          email: user.email,
+          userType: user.userType,
+          profile: user.profile,
+          company: user.company
+        }
+      });
+      */
+
+    } catch (verifyError) {
+      console.error('Google token verification failed:', verifyError.message);
+      return res.status(401).json({
+        message: 'Invalid Google token',
+        error: verifyError.message
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Google login error:', error);
+    res.status(500).json({
+      message: 'Server error during Google authentication',
+      error: error.message
+    });
+  }
+});
+
 export default router;
