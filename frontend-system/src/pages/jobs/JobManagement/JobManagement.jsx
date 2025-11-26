@@ -29,7 +29,8 @@ const JobManagement = () => {
         return;
       }
       
-      const response = await fetch('http://localhost:5000/api/jobs/company/my-jobs', {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/jobs/company/my-jobs`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -62,7 +63,8 @@ const JobManagement = () => {
         return;
       }
       
-      const response = await fetch(`http://localhost:5000/api/jobs/${jobId}`, {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/jobs/${jobId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

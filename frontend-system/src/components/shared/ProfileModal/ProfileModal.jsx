@@ -14,7 +14,10 @@ const ProfileModal = ({ applicant, onClose }) => {
   const getProfilePictureUrl = (profilePicture) => {
     if (!profilePicture) return null;
     if (profilePicture.startsWith('http')) return profilePicture;
-    return `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}${profilePicture}`;
+    const apiBase = typeof window !== 'undefined' 
+      ? (window.__ENV__?.VITE_API_BASE_URL || 'http://localhost:5000')
+      : 'http://localhost:5000';
+    return `${apiBase}${profilePicture}`;
   };
 
   const profilePicture = getProfilePictureUrl(applicant.profile?.profilePicture);

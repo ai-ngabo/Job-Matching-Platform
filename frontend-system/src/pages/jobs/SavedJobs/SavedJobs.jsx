@@ -71,7 +71,8 @@ const SavedJobs = () => {
       const jobsData = await Promise.all(
         saved.map(jobId => {
           console.log(`  → Fetching job: ${jobId}`);
-          return fetch(`http://localhost:5000/api/jobs/${jobId}`)
+          const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+          return fetch(`${apiBase}/api/jobs/${jobId}`)
             .then(res => {
               console.log(`  ← Response for ${jobId}: ${res.status}`);
               if (!res.ok) {

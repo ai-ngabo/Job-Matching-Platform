@@ -17,7 +17,8 @@ const PendingCompanies = ({ onApprovalChange }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      const response = await fetch('http://localhost:5000/api/admin/companies/pending', {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/admin/companies/pending`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -41,7 +42,8 @@ const PendingCompanies = ({ onApprovalChange }) => {
     try {
       setActionLoading(prev => ({ ...prev, [companyId]: true }));
       const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      const response = await fetch(`http://localhost:5000/api/admin/companies/${companyId}/approve`, {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/admin/companies/${companyId}/approve`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -70,7 +72,8 @@ const PendingCompanies = ({ onApprovalChange }) => {
     try {
       setActionLoading(prev => ({ ...prev, [companyId]: true }));
       const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      const response = await fetch(`http://localhost:5000/api/admin/companies/${companyId}/reject`, {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/admin/companies/${companyId}/reject`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
