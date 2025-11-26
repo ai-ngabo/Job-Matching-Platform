@@ -1,9 +1,56 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import api from '../../../services/api';
 import './JobSeekerDashboard.css';
 
 const JobSeekerDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    totalApplications: 0,
+    aiMatchScore: 0,
+    profileViews: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [recommendedJobs, setRecommendedJobs] = useState([]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch application stats
+      const statsResponse = await api.get('/applications/stats');
+      const applicationStats = statsResponse.data.stats || {};
+
+      // Fetch recent jobs for recommendations
+      const jobsResponse = await api.get('/jobs?limit=3');
+      const jobs = jobsResponse.data.jobs || [];
+
+      // Calculate AI match score (simplified - can be enhanced with actual matching algorithm)
+      const totalApps = applicationStats.totalApplications || 0;
+      const acceptedApps = applicationStats.statusCounts?.accepted || 0;
+      const matchScore = totalApps > 0 
+        ? Math.round((acceptedApps / totalApps) * 100) 
+        : 0;
+
+      setStats({
+        totalApplications: totalApps,
+        aiMatchScore: matchScore,
+        profileViews: 0 // This would come from a separate endpoint if available
+      });
+
+      setRecommendedJobs(jobs);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="jobseeker-dashboard">
@@ -18,7 +65,9 @@ const JobSeekerDashboard = () => {
           <div className="stat-icon">📊</div>
           <div className="stat-content">
             <h3>AI Match Score</h3>
-            <div className="stat-value">--%</div>
+            <div className="stat-value">
+              {loading ? '...' : `${stats.aiMatchScore}%`}
+            </div>
             <p>Average job compatibility</p>
           </div>
         </div>
@@ -27,7 +76,9 @@ const JobSeekerDashboard = () => {
           <div className="stat-icon">📨</div>
           <div className="stat-content">
             <h3>Applications</h3>
-            <div className="stat-value">0</div>
+            <div className="stat-value">
+              {loading ? '...' : stats.totalApplications}
+            </div>
             <p>Total applications sent</p>
           </div>
         </div>
@@ -36,7 +87,9 @@ const JobSeekerDashboard = () => {
           <div className="stat-icon">👁️</div>
           <div className="stat-content">
             <h3>Profile Views</h3>
-            <div className="stat-value">0</div>
+            <div className="stat-value">
+              {loading ? '...' : stats.profileViews}
+            </div>
             <p>By employers</p>
           </div>
         </div>
@@ -46,24 +99,53 @@ const JobSeekerDashboard = () => {
         <div className="action-card">
           <h3>Quick Actions</h3>
           <div className="action-buttons">
-            <button className="action-btn primary">
+            <button 
+              className="action-btn primary"
+              onClick={() => navigate('/jobs')}
+            >
               🔍 Browse Jobs
             </button>
-            <button className="action-btn secondary">
+            <button 
+              className="action-btn secondary"
+              onClick={() => navigate('/jobs')}
+            >
               🤖 AI Recommendations
             </button>
-            <button className="action-btn tertiary">
+            <button 
+              className="action-btn tertiary"
+              onClick={() => navigate('/profile')}
+            >
               📝 Update Profile
             </button>
           </div>
         </div>
 
         <div className="recommendation-card">
-          <h3>AI Job Matches</h3>
-          <div className="recommendation-placeholder">
-            <p>AI recommendations will appear here</p>
-            <small>Complete your profile for better matches</small>
-          </div>
+          <h3>Recommended Jobs</h3>
+          {loading ? (
+            <div className="recommendation-placeholder">
+              <p>Loading recommendations...</p>
+            </div>
+          ) : recommendedJobs.length > 0 ? (
+            <div className="recommendation-list">
+              {recommendedJobs.map((job) => (
+                <div 
+                  key={job._id} 
+                  className="recommendation-item"
+                  onClick={() => navigate(`/jobs/${job._id}`)}
+                >
+                  <h4>{job.title}</h4>
+                  <p>{job.companyName} • {job.location}</p>
+                  <span className="job-type">{job.jobType}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="recommendation-placeholder">
+              <p>Complete your profile for better matches</p>
+              <small>Update your skills and experience to see personalized recommendations</small>
+            </div>
+          )}
         </div>
       </div>
     </div>
