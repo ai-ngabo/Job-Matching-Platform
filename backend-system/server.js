@@ -17,6 +17,7 @@ import applicationRoutes from './routes/applications.js';
 import adminRoutes from './routes/admin.js';
 import chatbotRoutes from './routes/chatbot.js';
 import aiRoutes from './routes/ai.js';
+import testEmailRoutes from './routes/test-email.js';
 import { initializeEmailServiceOnStartup } from './utils/emailService.js';
 
 const app = express();
@@ -77,6 +78,7 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/test-email', testEmailRoutes); // Test email routes (remove in production)
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/job-platform-rwanda')

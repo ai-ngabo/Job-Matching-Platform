@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
@@ -40,34 +40,19 @@ const Register = () => {
   
   const { register } = useAuth();
   const navigate = useNavigate();
+  const googleButtonRef = useRef(null);
 
-  // Initialize Google SDK
-  useEffect(() => {
-    // Load Google SDK
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      if (window.google) {
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1234567890-abcdefghijklmnop.apps.googleusercontent.com',
-          callback: handleGoogleSuccess
-        });
-      }
-    };
-    document.body.appendChild(script);
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
-
-  const handleGoogleSuccess = async (response) => {
+  // Memoize the Google success handler
+  const handleGoogleSuccess = useCallback(async (response) => {
     try {
       setLoading(true);
       setError('');
+      
+      if (!response || !response.credential) {
+        throw new Error('No credential received from Google');
+      }
+
+      console.log('✅ Google Sign-In successful, sending token to backend...');
       
       // Send token to backend for verification
       const res = await api.post('/auth/google-login', {
@@ -76,26 +61,111 @@ const Register = () => {
 
       const data = res.data;
 
-      // Store token
-      if (data.token) {
-        localStorage.setItem('authToken', data.token);
+      if (!data || !data.token) {
+        throw new Error('No token received from server');
       }
+
+      // Store token
+      localStorage.setItem('authToken', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
+
+      console.log('✅ Google authentication successful, navigating...');
 
       // Navigate to dashboard or complete profile based on user data
       if (data.user?.profile?.firstName || data.user?.company?.name) {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       } else {
         // User needs to complete their profile
-        navigate('/profile');
+        navigate('/profile', { replace: true });
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || 'Failed to authenticate with Google';
       setError(errorMsg);
-      console.error('Google authentication error:', err);
+      console.error('❌ Google authentication error:', err);
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
+
+  // Initialize Google SDK
+  useEffect(() => {
+    // Function to initialize Google Sign-In
+    const initializeGoogleSignIn = () => {
+      if (!window.google || !googleButtonRef.current) {
+        return false;
+      }
+
+      try {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1234567890-abcdefghijklmnop.apps.googleusercontent.com',
+          callback: handleGoogleSuccess,
+          ux_mode: 'popup',
+          locale: 'en'
+        });
+        
+        // Render the button (Google doesn't accept percentage width, so we use CSS instead)
+        window.google.accounts.id.renderButton(
+          googleButtonRef.current,
+          {
+            theme: 'outline',
+            size: 'large',
+            text: 'signup_with',
+            locale: 'en'
+          }
+        );
+        return true;
+      } catch (error) {
+        console.error('Error initializing Google Sign-In:', error);
+        return false;
+      }
+    };
+
+    // Check if Google SDK is already loaded
+    if (window.google && googleButtonRef.current) {
+      initializeGoogleSignIn();
+      return;
+    }
+
+    // Load Google SDK if not already loaded
+    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        // Wait a bit for the ref to be ready, then initialize
+        const checkAndInit = () => {
+          if (googleButtonRef.current) {
+            initializeGoogleSignIn();
+          } else {
+            // Retry after a short delay
+            setTimeout(checkAndInit, 100);
+          }
+        };
+        checkAndInit();
+      };
+      script.onerror = () => {
+        console.error('Failed to load Google Sign-In script');
+        setError('Failed to load Google Sign-In. Please refresh the page.');
+      };
+      document.body.appendChild(script);
+    } else {
+      // Script already loaded, just wait for ref
+      const checkAndInit = () => {
+        if (window.google && googleButtonRef.current) {
+          initializeGoogleSignIn();
+        } else {
+          setTimeout(checkAndInit, 100);
+        }
+      };
+      checkAndInit();
+    }
+  }, [handleGoogleSuccess]);
 
   const getSteps = () =>
     formData.userType === 'company'
@@ -693,32 +763,11 @@ const Register = () => {
               <span>or continue with</span>
             </div>
 
-            <button
-              type="button"
-              className="google-button"
-              disabled={loading}
-              onClick={() => {
-                if (window.google) {
-                  window.google.accounts.id.renderButton(
-                    document.querySelector('.google-button-renderer') || document.querySelector('.google-button'),
-                    { theme: 'outline', size: 'large', text: 'center' }
-                  );
-                  window.google.accounts.id.prompt();
-                }
-              }}
-            >
-              <span className="google-icon" aria-hidden="true">
-                <svg viewBox="0 0 18 18" focusable="false">
-                  <g fill="none" fillRule="evenodd">
-                    <path d="M17.64 9.2045c0-.638-.0573-1.251-.1636-1.836H9v3.471h4.843a4.137 4.137 0 0 1-1.796 2.716v2.258h2.907c1.702-1.567 2.686-3.875 2.686-6.609Z" fill="#4285F4"></path>
-                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.186l-2.907-2.258c-.806.54-1.836.861-3.049.861-2.343 0-4.327-1.582-5.032-3.71H.957v2.332A8.998 8.998 0 0 0 9 18Z" fill="#34A853"></path>
-                    <path d="M3.968 10.707a5.41 5.41 0 0 1 0-3.414V4.961H.957a8.998 8.998 0 0 0 0 8.078l3.011-2.332Z" fill="#FBBC05"></path>
-                    <path d="M9 3.579c1.32 0 2.505.453 3.436 1.344l2.58-2.58C13.465.89 11.43 0 9 0a8.998 8.998 0 0 0-8.043 4.961l3.011 2.332C4.673 5.161 6.657 3.579 9 3.579Z" fill="#EA4335"></path>
-                  </g>
-                </svg>
-              </span>
-              Continue with Google
-            </button>
+            <div 
+              ref={googleButtonRef}
+              className="google-button-container"
+              style={{ width: '100%', display: 'flex', justifyContent: 'center' }}
+            ></div>
 
             <div className="login-link">
               Already have an account? <Link to="/login">Sign in</Link>

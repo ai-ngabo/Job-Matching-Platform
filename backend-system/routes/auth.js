@@ -306,14 +306,28 @@ router.post('/google-login', async (req, res) => {
       });
     }
 
+    // Check if Google Client ID is configured
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    if (!googleClientId) {
+      console.error('❌ GOOGLE_CLIENT_ID environment variable is not set');
+      return res.status(500).json({
+        message: 'Google authentication is not configured. Please contact support.',
+        error: 'GOOGLE_CLIENT_ID missing'
+      });
+    }
+
+    console.log('🔐 Attempting Google OAuth verification...');
+    console.log('📋 Client ID configured:', googleClientId ? 'Yes' : 'No');
+
     // Initialize Google OAuth client
-    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const client = new OAuth2Client(googleClientId);
     
     try {
       // Verify the token with Google
+      console.log('🔍 Verifying Google token...');
       const ticket = await client.verifyIdToken({
         idToken: token,
-        audience: process.env.GOOGLE_CLIENT_ID
+        audience: googleClientId
       });
 
       const payload = ticket.getPayload();
@@ -380,8 +394,24 @@ router.post('/google-login', async (req, res) => {
 
     } catch (verifyError) {
       console.error('❌ Google token verification failed:', verifyError.message);
+      console.error('❌ Error details:', {
+        name: verifyError.name,
+        message: verifyError.message,
+        code: verifyError.code
+      });
+      
+      // Provide more specific error messages
+      let errorMessage = 'Invalid Google token. Please try again.';
+      if (verifyError.message.includes('audience')) {
+        errorMessage = 'Token audience mismatch. Please check Google Client ID configuration.';
+      } else if (verifyError.message.includes('expired')) {
+        errorMessage = 'Google token has expired. Please try signing in again.';
+      } else if (verifyError.message.includes('signature')) {
+        errorMessage = 'Invalid token signature. Please try signing in again.';
+      }
+      
       return res.status(401).json({
-        message: 'Invalid Google token. Please try again.',
+        message: errorMessage,
         error: verifyError.message
       });
     }

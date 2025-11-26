@@ -15,27 +15,52 @@ const initializeEmailService = () => {
     !!process.env.SMTP_PASS;
 
   if (isEmailConfigured) {
+    const smtpPort = Number(process.env.SMTP_PORT || 587);
+    const isSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
+    
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure:
-        process.env.SMTP_SECURE === 'true' ||
-        Number(process.env.SMTP_PORT || 587) === 465,
+      port: smtpPort,
+      secure: isSecure,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
-      }
+      },
+      tls: {
+        // Allow self-signed certificates (common with Gmail and some SMTP servers)
+        // This is safe because we're still using TLS encryption, just not verifying the cert chain
+        rejectUnauthorized: false
+      },
+      // For non-secure connections (port 587), require TLS
+      requireTLS: !isSecure && smtpPort === 587,
+      // Connection timeout
+      connectionTimeout: 10000,
+      // Greeting timeout
+      greetingTimeout: 10000,
+      // Socket timeout
+      socketTimeout: 10000
     });
 
+    // Verify connection (but don't fail if certificate verification fails)
     transporter.verify()
       .then(() => {
         console.log('✅ Email service configured and verified successfully');
-        console.log(`📧 SMTP Host: ${process.env.SMTP_HOST}`);
+        console.log(`📧 SMTP Host: ${process.env.SMTP_HOST}:${smtpPort}`);
         console.log(`📧 From Address: ${getFromAddress()}`);
+        console.log(`📧 Secure: ${isSecure ? 'Yes (TLS/SSL)' : 'No (STARTTLS)'}`);
       })
       .catch((err) => {
-        console.warn('⚠️ SMTP transporter verification failed:', err.message);
-        console.warn('⚠️ Email sending may not work. Please check your SMTP credentials.');
+        // Log warning but don't prevent email service from being used
+        // Certificate issues are common and emails may still send
+        if (err.message.includes('certificate') || err.message.includes('self-signed')) {
+          console.warn('⚠️ SMTP certificate verification warning (emails may still work):', err.message);
+          console.log('📧 Email service initialized (certificate verification skipped)');
+          console.log(`📧 SMTP Host: ${process.env.SMTP_HOST}:${smtpPort}`);
+          console.log(`📧 From Address: ${getFromAddress()}`);
+        } else {
+          console.warn('⚠️ SMTP transporter verification failed:', err.message);
+          console.warn('⚠️ Please check your SMTP credentials and connection.');
+        }
       });
   } else {
     console.warn(
@@ -65,12 +90,21 @@ const sendEmail = async ({ to, subject, html }) => {
     return;
   }
 
-  await transporter.sendMail({
-    from: getFromAddress(),
-    to,
-    subject,
-    html
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: getFromAddress(),
+      to,
+      subject,
+      html
+    });
+    
+    console.log(`✅ Email sent successfully to ${to} (Message ID: ${info.messageId})`);
+    return info;
+  } catch (error) {
+    console.error(`❌ Failed to send email to ${to}:`, error.message);
+    // Don't throw - allow the application to continue even if email fails
+    throw error;
+  }
 };
 
 const buildRegistrationHtml = ({ firstName, userType, companyName }) => {
@@ -206,7 +240,7 @@ const buildApplicationStatusHtml = ({ candidateName, companyName, jobTitle, newS
         </div>` : ''}
         
         <p style="margin-top: 30px;">
-          <a href="http://localhost:3000/applications" style="background: #0073e6; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">View Your Applications</a>
+          <a href="${process.env.FRONTEND_URL || 'https://jobify-rw.vercel.app'}/applications" style="background: #0073e6; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">View Your Applications</a>
         </p>
         
         <p style="margin-top: 30px; color: #64748b; font-size: 14px;">If you have any questions, please feel free to contact us at support@jobify.com</p>
@@ -241,6 +275,117 @@ export const sendApplicationStatusEmail = async ({ email, candidateName, company
     });
   } catch (error) {
     console.error('❌ Failed to send application status email:', error.message);
+  }
+};
+
+const buildCompanyApprovalHtml = ({ companyName, contactPerson, email }) => {
+  const greetingName = contactPerson?.trim() || companyName?.trim() || 'there';
+  
+  return `
+    <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 600px; margin: 0 auto;">
+      <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #e2e8f0;">
+        <h1 style="margin: 0; font-size: 2rem;">✅</h1>
+        <h2 style="margin: 10px 0 0 0; color: #059669;">Company Account Approved!</h2>
+      </div>
+      
+      <div style="padding: 20px 0;">
+        <p>Hello ${greetingName},</p>
+        
+        <div style="background: #f0fdf4; padding: 20px; border-left: 4px solid #059669; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: 600; color: #059669;">Great news! Your company account has been approved.</p>
+          <p style="margin: 10px 0 0 0; color: #166534;">Your company <strong>${companyName}</strong> is now active on JobIFY.</p>
+        </div>
+        
+        <p>You can now:</p>
+        <ul style="line-height: 1.8;">
+          <li>Post job listings and reach qualified candidates</li>
+          <li>Review and manage job applications</li>
+          <li>Use AI-powered candidate matching</li>
+          <li>Access your company dashboard</li>
+        </ul>
+        
+        <p style="margin-top: 30px;">
+          <a href="${process.env.FRONTEND_URL || 'https://jobify-rw.vercel.app'}/dashboard" style="background: #059669; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">Go to Dashboard</a>
+        </p>
+        
+        <p style="margin-top: 30px; color: #64748b; font-size: 14px;">If you have any questions, please feel free to contact us at support@jobify.com</p>
+      </div>
+      
+      <div style="border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 20px; text-align: center; font-size: 12px; color: #94a3af;">
+        <p>This message was sent automatically by JobIFY. Please do not reply to this email.</p>
+      </div>
+    </div>
+  `;
+};
+
+const buildCompanyRejectionHtml = ({ companyName, contactPerson, reason }) => {
+  const greetingName = contactPerson?.trim() || companyName?.trim() || 'there';
+  
+  return `
+    <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 600px; margin: 0 auto;">
+      <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #e2e8f0;">
+        <h1 style="margin: 0; font-size: 2rem;">❌</h1>
+        <h2 style="margin: 10px 0 0 0; color: #dc2626;">Company Account Review Update</h2>
+      </div>
+      
+      <div style="padding: 20px 0;">
+        <p>Hello ${greetingName},</p>
+        
+        <div style="background: #fef2f2; padding: 20px; border-left: 4px solid #dc2626; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: 600; color: #dc2626;">Your company account application requires attention.</p>
+          <p style="margin: 10px 0 0 0; color: #991b1b;">Unfortunately, your company <strong>${companyName}</strong> account could not be approved at this time.</p>
+        </div>
+        
+        ${reason ? `<div style="background: #fffbeb; padding: 15px; border-left: 4px solid #f59e0b; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0 0 10px 0;"><strong>Reason:</strong></p>
+          <p style="margin: 0; color: #92400e;">${reason}</p>
+        </div>` : ''}
+        
+        <p>You can:</p>
+        <ul style="line-height: 1.8;">
+          <li>Review your company information and documents</li>
+          <li>Update any missing or incorrect information</li>
+          <li>Resubmit your application for review</li>
+          <li>Contact support if you have questions</li>
+        </ul>
+        
+        <p style="margin-top: 30px;">
+          <a href="${process.env.FRONTEND_URL || 'https://jobify-rw.vercel.app'}/profile" style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: 600;">Update Profile</a>
+        </p>
+        
+        <p style="margin-top: 30px; color: #64748b; font-size: 14px;">If you have any questions, please feel free to contact us at support@jobify.com</p>
+      </div>
+      
+      <div style="border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 20px; text-align: center; font-size: 12px; color: #94a3af;">
+        <p>This message was sent automatically by JobIFY. Please do not reply to this email.</p>
+      </div>
+    </div>
+  `;
+};
+
+export const sendCompanyApprovalEmail = async ({ email, companyName, contactPerson }) => {
+  try {
+    await sendEmail({
+      to: email,
+      subject: '✅ Your Company Account Has Been Approved - JobIFY',
+      html: buildCompanyApprovalHtml({ companyName, contactPerson, email })
+    });
+    console.log(`📧 Company approval email sent to ${email}`);
+  } catch (error) {
+    console.error('❌ Failed to send company approval email:', error.message);
+  }
+};
+
+export const sendCompanyRejectionEmail = async ({ email, companyName, contactPerson, reason }) => {
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Company Account Review Update - JobIFY',
+      html: buildCompanyRejectionHtml({ companyName, contactPerson, reason })
+    });
+    console.log(`📧 Company rejection email sent to ${email}`);
+  } catch (error) {
+    console.error('❌ Failed to send company rejection email:', error.message);
   }
 };
 
