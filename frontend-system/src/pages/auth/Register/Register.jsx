@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import api from '../../../services/api';
 import './Register.css';
 
 const Register = () => {
@@ -69,21 +70,11 @@ const Register = () => {
       setError('');
       
       // Send token to backend for verification
-      const res = await fetch('http://localhost:5000/api/auth/google-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          token: response.credential
-        })
+      const res = await api.post('/auth/google-login', {
+        token: response.credential
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Google authentication failed');
-      }
+      const data = res.data;
 
       // Store token
       if (data.token) {
@@ -98,7 +89,8 @@ const Register = () => {
         navigate('/profile');
       }
     } catch (err) {
-      setError(err.message || 'Failed to authenticate with Google');
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to authenticate with Google';
+      setError(errorMsg);
       console.error('Google authentication error:', err);
     } finally {
       setLoading(false);

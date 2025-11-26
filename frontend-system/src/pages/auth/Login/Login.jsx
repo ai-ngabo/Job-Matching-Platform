@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import api from '../../../services/api';
 import './Login.css';
 
 const Login = () => {
@@ -17,6 +18,65 @@ const Login = () => {
   
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Initialize Google SDK
+  React.useEffect(() => {
+    // Load Google SDK
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1234567890-abcdefghijklmnop.apps.googleusercontent.com',
+          callback: handleGoogleSuccess
+        });
+      }
+    };
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  const handleGoogleSuccess = async (response) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Send token to backend for verification
+      const res = await api.post('/auth/google-login', {
+        token: response.credential
+      });
+
+      const data = res.data;
+
+      // Store token
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+        sessionStorage.setItem('user', JSON.stringify(data.user));
+      }
+
+      // Navigate to dashboard
+      navigate('/dashboard');
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to authenticate with Google';
+      setError(errorMsg);
+      console.error('Google authentication error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleClick = () => {
+    window.google?.accounts.id.renderButton(
+      event.currentTarget,
+      { theme: 'outline', size: 'large' }
+    );
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -137,6 +197,7 @@ const Login = () => {
               type="button"
               className="google-button"
               disabled={loading}
+              onClick={handleGoogleClick}
             >
               <span className="google-icon" aria-hidden="true">
                 <svg viewBox="0 0 18 18" focusable="false">
