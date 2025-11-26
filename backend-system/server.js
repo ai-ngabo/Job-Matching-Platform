@@ -27,8 +27,11 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5173',
-      process.env.FRONTEND_URL || 'http://localhost:3000'
-    ];
+      'https://jobify-9gwmxxw9q-ai-ngabos-projects.vercel.app', // Production frontend
+      process.env.FRONTEND_URL // From environment
+    ].filter(Boolean); // Remove any undefined/null values
+    
+    console.log('🔒 CORS Check - Origin:', origin, 'Allowed:', allowedOrigins);
     
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
