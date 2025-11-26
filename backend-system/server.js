@@ -1,7 +1,10 @@
+// Load environment variables FIRST before any other imports
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import helmet from 'helmet';
 
@@ -12,8 +15,8 @@ import uploadRoutes from './routes/upload.js';
 import jobRoutes from './routes/jobs.js';
 import applicationRoutes from './routes/applications.js';
 import adminRoutes from './routes/admin.js';
-
-dotenv.config();
+import chatbotRoutes from './routes/chatbot.js';
+import { initializeEmailServiceOnStartup } from './utils/emailService.js';
 
 const app = express();
 
@@ -39,6 +42,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/job-platform-rwanda')
@@ -69,4 +73,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
+  
+  // Initialize email service on startup to verify configuration
+  initializeEmailServiceOnStartup();
 });

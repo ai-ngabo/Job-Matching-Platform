@@ -1,6 +1,12 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import User from '../models/User.js';
+import {
+  sendRegistrationEmail,
+  sendAdminRegistrationAlert,
+  sendPasswordResetEmail
+} from '../utils/emailService.js';
 
 const router = express.Router();
 
@@ -96,6 +102,23 @@ router.post('/register', async (req, res) => {
     const user = new User(userData);
     await user.save();
 
+    const displayName = user.profile?.firstName || user.profile?.lastName || '';
+    const savedCompanyName = user.company?.name || '';
+
+    await Promise.all([
+      sendRegistrationEmail({
+        email: user.email,
+        firstName: displayName,
+        userType: user.userType,
+        companyName: savedCompanyName
+      }),
+      sendAdminRegistrationAlert({
+        email: user.email,
+        userType: user.userType,
+        companyName: savedCompanyName
+      })
+    ]);
+
     // Generate token
     const token = generateToken(user._id);
 
@@ -182,6 +205,89 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ 
       message: 'Server error during login',
       error: error.message 
+    });
+  }
+});
+
+// Forgot password endpoint
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      // Avoid email enumeration
+      return res.json({
+        message: 'If that email exists, reset instructions have been sent.'
+      });
+    }
+
+    const rawToken = crypto.randomBytes(40).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresInMinutes = Number(process.env.PASSWORD_TOKEN_EXPIRY_MIN || 30);
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+    await user.save();
+
+    const frontendBase = process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendBase}/reset-password?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
+
+    await sendPasswordResetEmail({
+      email: user.email,
+      firstName: user.profile?.firstName || user.company?.contact?.personName,
+      resetUrl,
+      expiresInMinutes
+    });
+
+    res.json({
+      message: 'If that email exists, reset instructions have been sent.'
+    });
+  } catch (error) {
+    console.error('❌ Forgot password error:', error);
+    res.status(500).json({
+      message: 'Server error processing password reset',
+      error: error.message
+    });
+  }
+});
+
+// Reset password endpoint
+router.post('/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({ message: 'Token and new password are required' });
+  }
+
+  try {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Reset link is invalid or has expired' });
+    }
+
+    user.password = password;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    res.json({ message: 'Password updated successfully. You can now log in with your new credentials.' });
+  } catch (error) {
+    console.error('❌ Reset password error:', error);
+    res.status(500).json({
+      message: 'Server error while resetting password',
+      error: error.message
     });
   }
 });
