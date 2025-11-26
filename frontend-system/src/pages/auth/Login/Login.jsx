@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
@@ -18,20 +18,34 @@ const Login = () => {
   
   const { login } = useAuth();
   const navigate = useNavigate();
+  const googleButtonRef = useRef(null);
 
   // Initialize Google SDK
-  React.useEffect(() => {
+  useEffect(() => {
     // Load Google SDK
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      if (window.google) {
+      if (window.google && googleButtonRef.current) {
         window.google.accounts.id.initialize({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1234567890-abcdefghijklmnop.apps.googleusercontent.com',
-          callback: handleGoogleSuccess
+          callback: handleGoogleSuccess,
+          ux_mode: 'popup',
+          locale: 'en'
         });
+        
+        // Render the button (Google doesn't accept percentage width, so we use CSS instead)
+        window.google.accounts.id.renderButton(
+          googleButtonRef.current,
+          {
+            theme: 'outline',
+            size: 'large',
+            text: 'signin_with',
+            locale: 'en'
+          }
+        );
       }
     };
     document.body.appendChild(script);
@@ -61,7 +75,7 @@ const Login = () => {
       }
 
       // Navigate to dashboard
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || 'Failed to authenticate with Google';
       setError(errorMsg);
@@ -69,13 +83,6 @@ const Login = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleClick = () => {
-    window.google?.accounts.id.renderButton(
-      event.currentTarget,
-      { theme: 'outline', size: 'large' }
-    );
   };
 
   const handleChange = (e) => {
@@ -193,24 +200,11 @@ const Login = () => {
               <span>or continue with</span>
             </div>
 
-            <button
-              type="button"
-              className="google-button"
-              disabled={loading}
-              onClick={handleGoogleClick}
-            >
-              <span className="google-icon" aria-hidden="true">
-                <svg viewBox="0 0 18 18" focusable="false">
-                  <g fill="none" fillRule="evenodd">
-                    <path d="M17.64 9.2045c0-.638-.0573-1.251-.1636-1.836H9v3.471h4.843a4.137 4.137 0 0 1-1.796 2.716v2.258h2.907c1.702-1.567 2.686-3.875 2.686-6.609Z" fill="#4285F4"></path>
-                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.186l-2.907-2.258c-.806.54-1.836.861-3.049.861-2.343 0-4.327-1.582-5.032-3.71H.957v2.332A8.998 8.998 0 0 0 9 18Z" fill="#34A853"></path>
-                    <path d="M3.968 10.707a5.41 5.41 0 0 1 0-3.414V4.961H.957a8.998 8.998 0 0 0 0 8.078l3.011-2.332Z" fill="#FBBC05"></path>
-                    <path d="M9 3.579c1.32 0 2.505.453 3.436 1.344l2.58-2.58C13.465.89 11.43 0 9 0a8.998 8.998 0 0 0-8.043 4.961l3.011 2.332C4.673 5.161 6.657 3.579 9 3.579Z" fill="#EA4335"></path>
-                  </g>
-                </svg>
-              </span>
-              Continue with Google Account
-            </button>
+            <div 
+              ref={googleButtonRef}
+              className="google-button-container"
+              style={{ width: '100%', display: 'flex', justifyContent: 'center' }}
+            ></div>
 
             <div className="signup-link">
               New to JobIFY? <Link to="/register">Create Account</Link>

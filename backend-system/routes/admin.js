@@ -2,6 +2,7 @@ import express from 'express';
 import User from '../models/User.js';
 import auth from '../middleware/auth.js';
 import adminAuth from '../middleware/adminAuth.js';
+import { sendCompanyApprovalEmail, sendCompanyRejectionEmail } from '../utils/emailService.js';
 
 const router = express.Router();
 
@@ -156,6 +157,25 @@ router.put('/companies/:id/approve', async (req, res) => {
 
     console.log(`✅ Company approved: ${company.email}`);
 
+    // Send approval email to company
+    try {
+      const companyName = company.company?.name || 'Your Company';
+      const contactPerson = company.company?.contact?.personName || company.profile?.firstName || '';
+      const companyEmail = company.email;
+
+      if (companyEmail) {
+        await sendCompanyApprovalEmail({
+          email: companyEmail,
+          companyName: companyName,
+          contactPerson: contactPerson
+        });
+        console.log(`📧 Approval email sent to ${companyEmail}`);
+      }
+    } catch (emailError) {
+      console.error('Error sending approval email:', emailError.message);
+      // Don't fail the request if email fails
+    }
+
     res.json({
       message: 'Company approved successfully',
       company: {
@@ -199,8 +219,29 @@ router.put('/companies/:id/reject', async (req, res) => {
 
     console.log(`❌ Company rejected: ${company.email}`);
 
+    // Send rejection email to company
+    try {
+      const companyName = company.company?.name || 'Your Company';
+      const contactPerson = company.company?.contact?.personName || company.profile?.firstName || '';
+      const companyEmail = company.email;
+      const rejectionReason = reason || company.rejectionReason || 'Rejected by admin';
+
+      if (companyEmail) {
+        await sendCompanyRejectionEmail({
+          email: companyEmail,
+          companyName: companyName,
+          contactPerson: contactPerson,
+          reason: rejectionReason
+        });
+        console.log(`📧 Rejection email sent to ${companyEmail}`);
+      }
+    } catch (emailError) {
+      console.error('Error sending rejection email:', emailError.message);
+      // Don't fail the request if email fails
+    }
+
     res.json({
-      message: 'Company rejected',
+      message: 'Company rejected successfully',
       company: {
         _id: company._id,
         email: company.email,

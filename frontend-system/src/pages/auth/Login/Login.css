@@ -219,6 +219,24 @@
   padding: 0 1rem;
 }
 
+.google-button-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0;
+}
+
+.google-button-container > div {
+  width: 100% !important;
+  max-width: 100%;
+}
+
+/* Ensure Google button iframe is full width */
+.google-button-container iframe {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
 .google-button {
   display: flex;
   align-items: center;
