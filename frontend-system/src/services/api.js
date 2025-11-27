@@ -1,3 +1,4 @@
+// services/api.js
 import axios from 'axios';
 import { getAPIBaseURL } from '../config/apiConfig';
 
@@ -25,7 +26,8 @@ api.interceptors.request.use(
     }
     console.log('➡️ API Request:', config.method?.toUpperCase(), config.url, {
       hasToken: !!token,
-      authHeader: config.headers.Authorization?.substring(0, 30) + '...'
+      baseURL: config.baseURL,
+      fullURL: config.url
     });
     return config;
   },
@@ -39,9 +41,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     console.log('✅ API Response:', response.status, response.config.url, {
-      dataKeys: Object.keys(response.data || {}),
-      hasUser: !!response.data?.user,
-      hasProfile: !!response.data?.user?.profile
+      dataKeys: Object.keys(response.data || {})
     });
     return response;
   },
@@ -49,7 +49,8 @@ api.interceptors.response.use(
     console.error('❌ API Error:', {
       status: error.response?.status,
       url: error.config?.url,
-      message: error.response?.data?.message || error.message
+      message: error.response?.data?.message || error.message,
+      baseURL: error.config?.baseURL
     });
     
     if (error.response?.status === 401) {

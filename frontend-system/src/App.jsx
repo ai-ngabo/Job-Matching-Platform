@@ -70,10 +70,32 @@ const PublicRoute = ({ children }) => {
   return !isAuthenticated ? children : <Navigate to="/dashboard" />;  
 };
 
+const AuthDebug = () => {
+  const { user, isAuthenticated, loading } = useAuth();
+  
+  React.useEffect(() => {
+    console.log('🔍 AUTH DEBUG:', {
+      user: user ? { 
+        id: user._id, 
+        email: user.email, 
+        type: user.userType,
+        profile: user.profile 
+      } : null,
+      isAuthenticated,
+      loading,
+      token: localStorage.getItem('authToken'),
+      storedUser: localStorage.getItem('user')
+    });
+  }, [user, isAuthenticated, loading]);
+  
+  return null;
+};
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <AuthDebug />
         <div className="app">
           <BackendStatus />
           <Navigation />
