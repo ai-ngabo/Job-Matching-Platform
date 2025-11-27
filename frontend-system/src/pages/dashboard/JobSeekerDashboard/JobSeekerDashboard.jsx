@@ -185,6 +185,7 @@ const JobSeekerDashboard = () => {
             </button>
           </div>
         </div>
+      </div>
     </div>
   );
 };
