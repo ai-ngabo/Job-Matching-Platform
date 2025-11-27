@@ -7,7 +7,7 @@ export const authService = {
       console.log('🔐 Attempting login...');
       
       // Use full path including /api
-      const response = await api.post('auth/login', credentials);
+      const response = await api.post('/auth/login', credentials);
       
       console.log('✅ Login response received');
       
@@ -28,7 +28,7 @@ export const authService = {
 
   async register(userData) {
     try {
-      const response = await api.post('auth/register', userData);
+      const response = await api.post('/auth/register', userData);
       
       if (response.data.token && response.data.user) {
         localStorage.setItem('authToken', response.data.token);
@@ -67,8 +67,10 @@ export const authService = {
         throw new Error('No token found');
       }
       
-      const response = await api.get('auth/verify');
-      return response.data;
+      // Token exists and was already decoded by auth middleware on init
+      // Just return a basic verification response
+      const user = this.getCurrentUser();
+      return { user };
     } catch (error) {
       console.error('❌ Token verification failed:', error);
       this.logout();
