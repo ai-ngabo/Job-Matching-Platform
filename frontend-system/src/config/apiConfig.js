@@ -12,5 +12,5 @@ export const getAPIBaseURL = () => {
   
   // Fallback to environment variable
   const envURL = import.meta.env.VITE_API_BASE_URL;
-  return envURL ? `${envURL}/api` : 'http://localhost:5000/api';
+  return envURL || 'http://localhost:5000/api';
 };
