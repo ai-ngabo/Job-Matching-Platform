@@ -68,15 +68,15 @@ const AdminDashboard = () => {
 
       console.log('📊 Fetching all admin data...');
 
-      // Fetch all data in parallel
+      // Fetch all data in parallel using your API service
       const [statsResponse, usersResponse, companiesResponse, jobsResponse] = await Promise.all([
         api.get('/admin/stats'),
-        api.get('/admin/users'),
-        api.get('/admin/companies'),
-        api.get('/jobs?limit=100')
+        api.get('/admin/users?limit=100'),
+        api.get('/admin/companies?limit=100'),
+        api.get('/admin/jobs?limit=50')
       ]);
 
-      console.log('✅ All admin data fetched');
+      console.log('✅ All admin data fetched successfully');
 
       setStats(statsResponse.data.stats);
       setUsers(usersResponse.data.users || []);
@@ -92,9 +92,6 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error('❌ Error fetching admin data:', err);
       setError(err.response?.data?.message || err.message || 'Failed to load admin data');
-      
-      // Set demo data for presentation
-      setDemoData();
     } finally {
       setLoading(false);
     }
