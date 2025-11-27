@@ -22,18 +22,23 @@ const Login = () => {
 
   // Initialize Google SDK
   useEffect(() => {
-    // Load Google SDK
+    // Load Google SDK with explicit English locale
     const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
+    script.src = 'https://accounts.google.com/gsi/client?hl=en';
     script.async = true;
     script.defer = true;
     script.onload = () => {
       if (window.google && googleButtonRef.current) {
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        if (!clientId) {
+          console.error('❌ VITE_GOOGLE_CLIENT_ID is not configured in environment');
+          setError('Google Sign-In is not properly configured. Please contact support.');
+          return;
+        }
         window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1234567890-abcdefghijklmnop.apps.googleusercontent.com',
+          client_id: clientId,
           callback: handleGoogleSuccess,
-          ux_mode: 'popup',
-          locale: 'en'
+          ux_mode: 'popup'
         });
         
         // Render the button (Google doesn't accept percentage width, so we use CSS instead)
@@ -42,8 +47,7 @@ const Login = () => {
           {
             theme: 'outline',
             size: 'large',
-            text: 'signin_with',
-            locale: 'en'
+            text: 'signin_with'
           }
         );
       }
