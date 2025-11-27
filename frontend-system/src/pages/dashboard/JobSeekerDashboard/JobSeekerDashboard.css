@@ -153,6 +153,74 @@
   letter-spacing: -0.01em;
 }
 
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.card-header h3 {
+  margin: 0;
+}
+
+.view-all-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #fef3c7, #fef9e7);
+  border: 1.5px solid #fde68a;
+  border-radius: 8px;
+  color: #92400e;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.view-all-btn:hover {
+  background: white;
+  border-color: #fbbf24;
+  transform: translateY(-1px);
+}
+
+.card-subtitle {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0 0 1.5rem 0;
+  font-weight: 500;
+}
+
+.saved-jobs-preview {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #fef3c7, #fef9e7);
+  border-radius: 12px;
+  border: 2px dashed #fde68a;
+}
+
+.info-text {
+  font-size: 0.95rem;
+  color: #92400e;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.browse-saved-btn {
+  padding: 0.875rem 1.75rem;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.browse-saved-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
+}
+
 .action-buttons {
   display: flex;
   flex-direction: column;
