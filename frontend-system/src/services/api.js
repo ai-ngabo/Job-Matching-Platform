@@ -4,7 +4,7 @@ import axios from 'axios';
 // Get the API base URL from environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
                     process.env.REACT_APP_API_URL || 
-                    'https://job-matching-platform-zvzw.onrender.com';
+                    'https://job-matching-platform-zvzw.onrender.com/api';
 
 console.log('🔗 API Base URL:', API_BASE_URL);
 
