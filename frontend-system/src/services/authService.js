@@ -4,21 +4,18 @@ import api from './api';
 export const authService = {
   async login(credentials) {
     try {
-      console.log('🔐 Attempting login with:', { email: credentials.email });
+      console.log('🔐 Attempting login...');
       
-      // Use '/api/auth/login' without the baseURL since it's already included
+      // Use full path including /api
       const response = await api.post('/api/auth/login', credentials);
       
-      console.log('✅ Login response:', response.data);
+      console.log('✅ Login response received');
       
       if (response.data.token && response.data.user) {
-        // Store as authToken to match api.js expectation
         localStorage.setItem('authToken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         
-        console.log('✅ Login successful - Token stored as authToken');
-        console.log('👤 User type:', response.data.user.userType);
-        
+        console.log('✅ Login successful - User type:', response.data.user.userType);
         return response.data;
       } else {
         throw new Error('Invalid response from server');
@@ -31,15 +28,11 @@ export const authService = {
 
   async register(userData) {
     try {
-      console.log('📝 Attempting registration with:', { email: userData.email, userType: userData.userType });
-      
       const response = await api.post('/api/auth/register', userData);
       
       if (response.data.token && response.data.user) {
         localStorage.setItem('authToken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        
-        console.log('✅ Registration successful - Token stored as authToken');
       }
       
       return response.data;
@@ -52,7 +45,7 @@ export const authService = {
   logout() {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
-    localStorage.removeItem('token'); // Remove old token if exists
+    localStorage.removeItem('token');
     sessionStorage.removeItem('authToken');
     console.log('✅ Logout - Tokens cleared');
   },
@@ -83,3 +76,5 @@ export const authService = {
     }
   }
 };
+
+export default authService;

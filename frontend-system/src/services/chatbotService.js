@@ -88,3 +88,5 @@ export const chatbotService = {
     return await this.intelligentSearch(prompt);
   }
 };
+
+export default chatbotService;
