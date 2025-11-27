@@ -31,9 +31,12 @@ const JobSeekerDashboard = () => {
       const applicationStats = statsResponse.data.stats || {};
       console.log('✅ Stats fetched:', applicationStats);
 
-      const jobsResponse = await api.get('/jobs?limit=6&status=active');
+      // Fetch recommended jobs
+      console.log('🔍 Fetching recommended jobs...');
+      const jobsResponse = await api.get('/jobs?limit=6');
+      console.log('📦 Jobs response:', jobsResponse.data);
       const jobs = jobsResponse.data.jobs || [];
-      console.log('✅ Jobs fetched:', jobs.length);
+      console.log('✅ Jobs fetched:', jobs.length, jobs);
 
       // Calculate AI match score (simplified - can be enhanced with actual matching algorithm)
       const totalApps = applicationStats.totalApplications || 0;
@@ -53,7 +56,8 @@ const JobSeekerDashboard = () => {
       setRecommendedJobs(jobs);
     } catch (error) {
       console.error('❌ Error fetching dashboard data:', error);
-      setError(error.response?.data?.message || 'Failed to load dashboard data');
+      console.error('❌ Error response:', error.response?.data);
+      setError(error.response?.data?.message || error.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
