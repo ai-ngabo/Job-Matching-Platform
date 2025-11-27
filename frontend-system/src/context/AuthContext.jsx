@@ -15,37 +15,42 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
+      console.log('🔄 Initializing authentication...');
+      
       const currentUser = authService.getCurrentUser();
       const token = authService.getToken();
-      
-      console.log('🔄 Auth initialization:', {
+
+      console.log('🔍 Auth state:', {
         hasUser: !!currentUser,
         hasToken: !!token,
-        tokenType: token ? 'authToken' : 'none'
+        userType: currentUser?.userType
       });
 
       if (currentUser && token) {
-        // Verify token is still valid
         try {
-          const response = await api.get('/api/auth/verify');
-          setUser(response.data.user);
-          console.log('✅ Token verified successfully');
+          // Verify token is still valid
+          const response = await authService.verifyToken();
+          setUser(response.user);
+          console.log('✅ Authentication successful');
         } catch (error) {
-          console.error('❌ Token verification failed:', error);
+          console.error('❌ Authentication failed:', error);
           authService.logout();
+          setUser(null);
         }
       } else {
         // Clear any inconsistent state
-        if (!token && currentUser) {
-          console.warn('⚠️ Inconsistent state: User without token');
+        if ((!token && currentUser) || (!currentUser && token)) {
+          console.warn('⚠️ Inconsistent auth state, clearing...');
           authService.logout();
         }
       }
       
       setLoading(false);
+      setAuthChecked(true);
     };
 
     initAuth();
@@ -53,10 +58,19 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
+      console.log('🔐 Starting login process...');
       const data = await authService.login(credentials);
       setUser(data.user);
+      
+      console.log('✅ Login successful, user:', {
+        id: data.user._id,
+        email: data.user.email,
+        userType: data.user.userType
+      });
+      
       return data;
     } catch (error) {
+      console.error('❌ Login failed:', error);
       throw error;
     }
   };
@@ -72,6 +86,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    console.log('🚪 Logging out...');
     authService.logout();
     setUser(null);
   };
@@ -88,6 +103,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     isAuthenticated: !!user && !!authService.getToken(),
+    authChecked,
     loading
   };
 

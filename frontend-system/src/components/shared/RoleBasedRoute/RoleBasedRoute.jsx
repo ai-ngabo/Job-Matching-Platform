@@ -5,6 +5,12 @@ import { useAuth } from '../../../context/AuthContext';
 const RoleBasedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   
+  console.log('🔐 RoleBasedRoute check:', {
+    user: user ? { type: user.userType, email: user.email } : null,
+    allowedRoles,
+    loading
+  });
+  
   if (loading) {
     return <div className="loading-screen">Checking permissions...</div>;
   }
@@ -15,6 +21,7 @@ const RoleBasedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/dashboard" replace />;
   }
   
+  console.log('✅ Access granted to RoleBasedRoute');
   return children;
 };
 

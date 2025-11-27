@@ -1,16 +1,6 @@
 // API configuration for production
 export const getAPIBaseURL = () => {
-  // For production (Vercel)
-  if (typeof window !== 'undefined' && window.location.hostname === 'jobify-rw.vercel.app') {
-    return 'https://job-matching-platform-zvzw.onrender.com/api';
-  }
-  
-  // For development
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return 'http://localhost:5000/api';
-  }
-  
-  // Fallback to environment variable
-  const envURL = import.meta.env.VITE_API_BASE_URL;
-  return envURL || 'http://localhost:5000/api';
+  const baseURL = process.env.REACT_APP_API_URL || 'https://job-matching-platform-zvzw.onrender.com';
+  console.log('🔗 API Base URL:', baseURL);
+  return baseURL;
 };
