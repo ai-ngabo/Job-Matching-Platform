@@ -1,3 +1,4 @@
+// routes/admin.js - Complete version
 import express from 'express';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
@@ -80,7 +81,7 @@ router.get('/stats', async (req, res) => {
 });
 
 // @route   GET /api/admin/users
-// @desc    Get all users
+// @desc    Get all users (THIS IS MISSING)
 router.get('/users', async (req, res) => {
   try {
     const { limit = 100, search = '' } = req.query;
@@ -174,7 +175,7 @@ router.get('/companies', async (req, res) => {
 });
 
 // @route   GET /api/admin/jobs
-// @desc    Get all jobs
+// @desc    Get all jobs (THIS IS MISSING)
 router.get('/jobs', async (req, res) => {
   try {
     const { limit = 50, status = '' } = req.query;
@@ -211,6 +212,39 @@ router.get('/jobs', async (req, res) => {
     console.error('❌ Get jobs error:', error);
     res.status(500).json({
       message: 'Error fetching jobs',
+      error: error.message
+    });
+  }
+});
+
+// @route   GET /api/admin/applications
+// @desc    Get all applications (THIS IS MISSING)
+router.get('/applications', async (req, res) => {
+  try {
+    const { limit = 100, status = '' } = req.query;
+
+    let filter = {};
+    if (status) {
+      filter.status = status;
+    }
+
+    const applications = await Application.find(filter)
+      .populate('applicant', 'profile.firstName profile.lastName email')
+      .populate('job', 'title company')
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      message: 'Applications retrieved successfully',
+      applications,
+      total: applications.length
+    });
+
+  } catch (error) {
+    console.error('❌ Get applications error:', error);
+    res.status(500).json({
+      message: 'Error fetching applications',
       error: error.message
     });
   }
@@ -288,7 +322,7 @@ router.put('/companies/:id/reject', async (req, res) => {
 });
 
 // @route   DELETE /api/admin/users/:id
-// @desc    Delete a user
+// @desc    Delete a user (THIS IS MISSING)
 router.delete('/users/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
