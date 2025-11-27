@@ -27,21 +27,34 @@ const Login = () => {
     script.src = 'https://accounts.google.com/gsi/client?hl=en';
     script.async = true;
     script.defer = true;
-    script.onload = () => {
-      if (window.google && googleButtonRef.current) {
-        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-        if (!clientId) {
-          console.error('❌ VITE_GOOGLE_CLIENT_ID is not configured in environment');
-          setError('Google Sign-In is not properly configured. Please contact support.');
-          return;
-        }
+    script.onload = initializeGoogleSDK;
+    document.head.appendChild(script);
+    
+    return () => {
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
+  }, []);
+
+  const initializeGoogleSDK = () => {
+    if (window.google && googleButtonRef.current) {
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        console.error('❌ VITE_GOOGLE_CLIENT_ID is not configured in environment');
+        setError('Google Sign-In is not properly configured. Please contact support.');
+        return;
+      }
+      
+      try {
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: handleGoogleSuccess,
-          ux_mode: 'popup'
+          ux_mode: 'popup',
+          auto_select: false
         });
         
-        // Render the button (Google doesn't accept percentage width, so we use CSS instead)
+        // Render the button
         window.google.accounts.id.renderButton(
           googleButtonRef.current,
           {
@@ -50,15 +63,14 @@ const Login = () => {
             text: 'signin_with'
           }
         );
+        
+        console.log('✅ Google SDK initialized successfully');
+      } catch (err) {
+        console.error('Error initializing Google SDK:', err);
+        setError('Google Sign-In initialization failed');
       }
-    };
-    document.body.appendChild(script);
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
+    }
+  };
 
   const handleGoogleSuccess = async (response) => {
     try {
