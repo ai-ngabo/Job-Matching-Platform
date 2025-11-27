@@ -164,8 +164,27 @@ const JobSeekerDashboard = () => {
           )}
         </div>
 
-
-      </div>
+        <div className="saved-jobs-card">
+          <div className="card-header">
+            <h3>📌 Saved Jobs</h3>
+            <button 
+              className="view-all-btn"
+              onClick={() => navigate('/saved-jobs')}
+            >
+              View All →
+            </button>
+          </div>
+          <p className="card-subtitle">Your collection of jobs you're interested in</p>
+          <div className="saved-jobs-preview">
+            <p className="info-text">Browse and manage your saved job opportunities</p>
+            <button 
+              className="browse-saved-btn"
+              onClick={() => navigate('/saved-jobs')}
+            >
+              View Saved Jobs (3 Saved)
+            </button>
+          </div>
+        </div>
     </div>
   );
 };
