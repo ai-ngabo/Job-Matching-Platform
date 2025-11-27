@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, DollarSign, Briefcase, Clock, Building2, Bookmark, BookmarkCheck, AlertCircle } from 'lucide-react';
 import './JobDetails.css';
+import api from '../../../services/api';
 
 const JobDetails = () => {
   const { jobId } = useParams(); 
@@ -105,7 +106,7 @@ const JobDetails = () => {
     try {
       // Get token from proper storage
       const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-    
+
       if (!token) {
         console.log('❌ No token found, redirecting to login');
         navigate('/login');
@@ -118,31 +119,15 @@ const JobDetails = () => {
       setApplying(true);
       setError(null);
 
-      // ✅ FIXED: Use the correct endpoint from your backend
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiBase}/api/applications/job/${jobId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ 
-          coverLetter: `I'm interested in the ${job?.title} position at ${job?.companyName}. I believe my skills and experience make me a strong candidate for this role.`
-        }),
+      // ✅ Use the centralized api service
+      const response = await api.post(`/applications/job/${jobId}`, {
+        coverLetter: `I'm interested in the ${job?.title} position at ${job?.companyName}. I believe my skills and experience make me a strong candidate for this role.`
       });
 
-      console.log('📨 Application response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Application failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Application successful:', result);
+      console.log('✅ Application successful:', response.data);
 
       setApplicationSuccess(true);
-    
+
       // Hide success message after 5 seconds
       setTimeout(() => {
         setApplicationSuccess(false);
@@ -150,9 +135,9 @@ const JobDetails = () => {
 
     } catch (err) {
       console.error('❌ Application error:', err);
-      const errorMsg = err.message || 'Failed to submit application';
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to submit application';
       setError(errorMsg);
-    
+
       // Auto-hide error after 5 seconds
       setTimeout(() => {
         setError(null);
