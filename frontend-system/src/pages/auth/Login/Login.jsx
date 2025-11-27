@@ -115,10 +115,30 @@ const Login = () => {
     setError('');
 
     try {
-      await login(formData);
+      console.log('🔐 Starting login process...');
+      const result = await login(formData);
+      
+      console.log('✅ Login successful!', {
+        userType: result.user.userType,
+        email: result.user.email
+      });
+      
+      // Navigate to dashboard
       navigate('/dashboard');
+      
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      console.error('❌ Login failed:', err);
+      
+      // More specific error messages
+      if (err.response?.status === 401) {
+        setError('Invalid email or password');
+      } else if (err.response?.status === 404) {
+        setError('Login service unavailable. Please try again.');
+      } else if (err.message?.includes('Network Error')) {
+        setError('Cannot connect to server. Please check your connection.');
+      } else {
+        setError(err.response?.data?.message || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

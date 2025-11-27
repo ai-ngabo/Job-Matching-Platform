@@ -22,32 +22,53 @@ import './App.css';
 
 const BackendStatus = () => {
   const [backendOnline, setBackendOnline] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkBackend = async () => {
-      const isOnline = await healthCheck();
-      setBackendOnline(isOnline);
+      try {
+        console.log('🔍 Checking backend health...');
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+                            process.env.REACT_APP_API_URL || 
+                            'https://job-matching-platform-zvzw.onrender.com';
+        
+        const response = await fetch(`${API_BASE_URL}/api/health`);
+        const data = await response.json();
+        
+        console.log('🏥 Backend health:', data);
+        setBackendOnline(response.ok);
+      } catch (error) {
+        console.error('❌ Backend health check failed:', error);
+        setBackendOnline(false);
+      } finally {
+        setLoading(false);
+      }
     };
 
     checkBackend();
   }, []);
 
-  if (backendOnline === null) return null;
+  if (loading) {
+    return null; // Don't show anything while loading
+  }
 
   if (!backendOnline) {
     return (
-      <div className="backend-error">
-        <div className="error-content">
-          <h2>🚨 Backend Server Offline</h2>
-          <p>Please make sure your backend server is running on port 5000.</p>
-          <p>Run this command in your backend folder:</p>
-          <code>npm run dev</code>
+      <div className="backend-status error">
+        <div className="status-content">
+          <p>⚠️ Backend connection issue</p>
         </div>
       </div>
     );
   }
 
-  return null;
+  return (
+    <div className="backend-status success">
+      <div className="status-content">
+        <p>✅ Backend connected</p>
+      </div>
+    </div>
+  );
 };
 
 const ProtectedRoute = ({ children }) => {

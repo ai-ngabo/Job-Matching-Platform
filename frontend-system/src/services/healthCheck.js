@@ -10,3 +10,5 @@ export const healthCheck = async () => {
     return false;
   }
 };
+
+export default healthCheck;

@@ -1,34 +1,34 @@
 // services/api.js
 import axios from 'axios';
-import { getAPIBaseURL } from '../config/apiConfig';
 
-const FULL_API_URL = getAPIBaseURL();
+// Get the API base URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+                    process.env.REACT_APP_API_URL || 
+                    'https://job-matching-platform-zvzw.onrender.com';
 
-console.log('🔗 Connecting to backend at:', FULL_API_URL);
+console.log('🔗 API Base URL:', API_BASE_URL);
 
 const api = axios.create({
-  baseURL: FULL_API_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 30000,
 });
 
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken') ?? sessionStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     if (token) {
-      console.log('📝 Token retrieved:', token.substring(0, 20) + '...');
+      console.log('📝 Adding token to request');
       config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      console.warn('⚠️ No token found in localStorage or sessionStorage');
     }
-    console.log('➡️ API Request:', config.method?.toUpperCase(), config.url, {
-      hasToken: !!token,
-      baseURL: config.baseURL,
-      fullURL: config.url
-    });
+    
+    // Log the full URL being called
+    const fullURL = `${config.baseURL}${config.url}`;
+    console.log('➡️ Making request to:', fullURL);
+    
     return config;
   },
   (error) => {
@@ -40,8 +40,10 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ API Response:', response.status, response.config.url, {
-      dataKeys: Object.keys(response.data || {})
+    console.log('✅ Response received:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data
     });
     return response;
   },
@@ -49,12 +51,14 @@ api.interceptors.response.use(
     console.error('❌ API Error:', {
       status: error.response?.status,
       url: error.config?.url,
-      message: error.response?.data?.message || error.message,
-      baseURL: error.config?.baseURL
+      message: error.message,
+      responseData: error.response?.data
     });
     
     if (error.response?.status === 401) {
+      console.log('🔄 401 Unauthorized - clearing tokens');
       localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
