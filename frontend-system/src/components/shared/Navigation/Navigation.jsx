@@ -76,7 +76,6 @@ const Navigation = () => {
       <div className="navbar-container">
         <div className="navbar-brand" onClick={() => navigate('/dashboard')}>
           <span className="brand-logo">JobIFY</span>
-          <span className="brand-tagline">AI Jobs</span>
         </div>
         
         {/* Desktop Navigation */}

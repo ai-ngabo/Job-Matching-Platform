@@ -23,10 +23,16 @@
 }
 
 .applications-header p {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.95);
   margin: 0;
   font-size: 1.1rem;
   font-weight: 500;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.header-subtitle {
+  color: rgba(255, 255, 255, 0.95) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* Stats Overview */
@@ -46,6 +52,7 @@
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .stat-card::before {
@@ -68,6 +75,17 @@
 }
 
 .stat-card:hover::before {
+  transform: scaleX(1);
+}
+
+.stat-card.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f3f4ff 0%, #f8f5ff 100%);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+  transform: translateY(-4px);
+}
+
+.stat-card.active::before {
   transform: scaleX(1);
 }
 

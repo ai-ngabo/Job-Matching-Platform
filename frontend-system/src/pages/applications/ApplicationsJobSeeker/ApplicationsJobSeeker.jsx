@@ -19,6 +19,7 @@ const ApplicationsJobSeeker = () => {
     accepted: 0,
     rejected: 0
   });
+  const [filteredStatus, setFilteredStatus] = useState(null);
 
   useEffect(() => {
     fetchApplicationsAndStats();
@@ -52,6 +53,7 @@ const ApplicationsJobSeeker = () => {
       };
 
       setStats(stats);
+      setFilteredStatus(null); // Reset filter when fetching new data
 
     } catch (err) {
       console.error('❌ Error fetching applications:', err);
@@ -129,23 +131,75 @@ const ApplicationsJobSeeker = () => {
     );
   }
 
+  // Filter applications by status
+  const getStatusKey = (status) => {
+    switch (status) {
+      case 'submitted': return 'submitted';
+      case 'reviewing': return 'reviewing';
+      case 'interview': return 'interview';
+      case 'accepted': return 'accepted';
+      case 'rejected': return 'rejected';
+      default: return null;
+    }
+  };
+
+  const filteredApplications = filteredStatus 
+    ? applications.filter(app => getStatusKey(app.status) === filteredStatus)
+    : applications;
+
   return (
     <div className="applications-container">
       <div className="applications-header">
         <div className="header-content">
           <h1>My Applications</h1>
-          <p>Track your job applications and status updates</p>
+          <p className="header-subtitle">Track your job applications and status updates</p>
         </div>
       </div>
 
       {/* Stats Overview */}
       <div className="stats-overview">
-        <div className="stat-card"><div className="stat-number">{stats.total}</div><div className="stat-label">Total</div></div>
-        <div className="stat-card"><div className="stat-number">{stats.submitted}</div><div className="stat-label">Submitted</div></div>
-        <div className="stat-card"><div className="stat-number">{stats.reviewing}</div><div className="stat-label">Under Review</div></div>
-        <div className="stat-card"><div className="stat-number">{stats.interview}</div><div className="stat-label">Interview</div></div>
-        <div className="stat-card"><div className="stat-number">{stats.accepted}</div><div className="stat-label">Accepted</div></div>
-        <div className="stat-card"><div className="stat-number">{stats.rejected}</div><div className="stat-label">Not Selected</div></div>
+        <div 
+          className={`stat-card ${filteredStatus === null ? 'active' : ''}`}
+          onClick={() => setFilteredStatus(null)}
+        >
+          <div className="stat-number">{stats.total}</div>
+          <div className="stat-label">Total</div>
+        </div>
+        <div 
+          className={`stat-card ${filteredStatus === 'submitted' ? 'active' : ''}`}
+          onClick={() => setFilteredStatus('submitted')}
+        >
+          <div className="stat-number">{stats.submitted}</div>
+          <div className="stat-label">Submitted</div>
+        </div>
+        <div 
+          className={`stat-card ${filteredStatus === 'reviewing' ? 'active' : ''}`}
+          onClick={() => setFilteredStatus('reviewing')}
+        >
+          <div className="stat-number">{stats.reviewing}</div>
+          <div className="stat-label">Under Review</div>
+        </div>
+        <div 
+          className={`stat-card ${filteredStatus === 'interview' ? 'active' : ''}`}
+          onClick={() => setFilteredStatus('interview')}
+        >
+          <div className="stat-number">{stats.interview}</div>
+          <div className="stat-label">Interview</div>
+        </div>
+        <div 
+          className={`stat-card ${filteredStatus === 'accepted' ? 'active' : ''}`}
+          onClick={() => setFilteredStatus('accepted')}
+        >
+          <div className="stat-number">{stats.accepted}</div>
+          <div className="stat-label">Accepted</div>
+        </div>
+        <div 
+          className={`stat-card ${filteredStatus === 'rejected' ? 'active' : ''}`}
+          onClick={() => setFilteredStatus('rejected')}
+        >
+          <div className="stat-number">{stats.rejected}</div>
+          <div className="stat-label">Not Selected</div>
+        </div>
       </div>
 
       {/* Applications List */}
@@ -158,9 +212,9 @@ const ApplicationsJobSeeker = () => {
             </div>
           </div>
 
-          {applications.length > 0 ? (
+          {filteredApplications.length > 0 ? (
             <div className="applications-grid">
-              {applications.map((application) => (
+              {filteredApplications.map((application) => (
                 <div key={application._id} className="application-card">
                   <div className="application-header">
                     <div className="company-info">
@@ -197,7 +251,12 @@ const ApplicationsJobSeeker = () => {
                   </div>
 
                   <div className="application-actions">
-                    <button className="btn-outline">View Details</button>
+                    <button 
+                      className="btn-outline"
+                      onClick={() => navigate(`/jobs/${application.job?._id}`)}
+                    >
+                      View Details
+                    </button>
                   </div>
                 </div>
               ))}
@@ -206,7 +265,7 @@ const ApplicationsJobSeeker = () => {
             <div className="empty-state">
               <Briefcase size={48} />
               <h3>No Applications Found</h3>
-              <p>You haven't applied to any jobs yet. Start browsing available positions!</p>
+              <p>{filteredStatus ? `No applications with status "${filteredStatus}".` : "You haven't applied to any jobs yet. Start browsing available positions!"}</p>
               <button className="btn-primary" onClick={() => navigate('/jobs')}>Browse Jobs</button>
             </div>
           )}
