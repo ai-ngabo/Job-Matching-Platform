@@ -258,4 +258,88 @@ router.put('/companies/:id/reject', async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/stats
+// @desc    Get admin dashboard statistics
+// @access  Private (Admin only)
+router.get('/stats', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    // Get all statistics in parallel
+    const [
+      totalUsers,
+      totalJobSeekers,
+      totalCompanies,
+      approvedCompanies,
+      pendingCompanies,
+      rejectedCompanies,
+      totalJobs,
+      activeJobs
+    ] = await Promise.all([
+      // Total users
+      User.countDocuments(),
+      
+      // Job seekers
+      User.countDocuments({ userType: 'jobseeker' }),
+      
+      // Total companies
+      User.countDocuments({ userType: 'company' }),
+      
+      // Approved companies
+      User.countDocuments({ 
+        userType: 'company', 
+        approvalStatus: 'approved' 
+      }),
+      
+      // Pending companies
+      User.countDocuments({ 
+        userType: 'company', 
+        approvalStatus: 'pending' 
+      }),
+      
+      // Rejected companies
+      User.countDocuments({ 
+        userType: 'company', 
+        approvalStatus: 'rejected' 
+      }),
+      
+      // Total jobs
+      Job.countDocuments(),
+      
+      // Active jobs
+      Job.countDocuments({ status: 'active' })
+    ]);
+
+    const stats = {
+      totalUsers,
+      totalJobSeekers,
+      totalCompanies,
+      approvedCompanies,
+      pendingCompanies,
+      rejectedCompanies,
+      totalJobs,
+      activeJobs,
+      // Additional calculated stats
+      approvalRate: totalCompanies > 0 ? Math.round((approvedCompanies / totalCompanies) * 100) : 0,
+      rejectionRate: totalCompanies > 0 ? Math.round((rejectedCompanies / totalCompanies) * 100) : 0
+    };
+
+    console.log('📊 Admin stats fetched:', stats);
+
+    res.json({
+      message: 'Admin statistics retrieved successfully',
+      stats
+    });
+
+  } catch (error) {
+    console.error('Admin stats error:', error);
+    res.status(500).json({
+      message: 'Error fetching admin statistics',
+      error: error.message
+    });
+  }
+});
+
 export default router;
