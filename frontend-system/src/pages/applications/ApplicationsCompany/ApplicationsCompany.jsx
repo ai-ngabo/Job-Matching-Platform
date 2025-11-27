@@ -6,7 +6,6 @@ import {
   Building2,
   AlertCircle,
   Zap,
-  Download,
   User,
   Check,
   Clock,
@@ -26,7 +25,6 @@ const ApplicationsCompany = () => {
   const [error, setError] = useState('');
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
-  const [cvViewer, setCvViewer] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [qualificationScores, setQualificationScores] = useState({});
   const [shortlistedCandidates, setShortlistedCandidates] = useState(new Set());
@@ -285,14 +283,16 @@ const ApplicationsCompany = () => {
               {/* Actions */}
               <div className="card-actions">
                 {application.applicant?.profile?.documents?.cv?.url && (
-                  <button
-                    onClick={() => setCvViewer(application.applicant.profile.documents.cv.url)}
+                  <a
+                    href={application.applicant.profile.documents.cv.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="action-btn cv-btn"
-                    title="View CV in modal"
+                    title="View CV in new tab"
                   >
                     <FileText size={14} />
                     View CV
-                  </button>
+                  </a>
                 )}
                 <button
                   className={`action-btn shortlist-btn ${shortlistedCandidates.has(application._id) ? 'active' : ''}`}
@@ -428,48 +428,7 @@ const ApplicationsCompany = () => {
       )}
 
       {/* CV Viewer Modal */}
-      {cvViewer && (
-        <div className="modal-overlay" onClick={() => setCvViewer(null)}>
-          <div className="modal-content cv-viewer-modal" onClick={(e) => e.stopPropagation()}>
-            <button 
-              className="modal-close" 
-              onClick={() => setCvViewer(null)}
-              aria-label="Close CV viewer"
-            >
-              ×
-            </button>
-            <div className="cv-viewer-container">
-              <div className="cv-viewer-header">
-                <FileText size={24} />
-                <h2>Candidate CV</h2>
-              </div>
-              <div className="cv-viewer-body">
-                {cvViewer.endsWith('.pdf') ? (
-                  <iframe
-                    src={cvViewer}
-                    title="Candidate CV"
-                    className="cv-iframe"
-                    frameBorder="0"
-                  />
-                ) : (
-                  <div className="cv-file-viewer">
-                    <p className="cv-file-notice">Document preview not available</p>
-                    <a 
-                      href={cvViewer} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="action-btn"
-                    >
-                      <Download size={14} />
-                      Download CV
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Removed - CVs now open in new tab */}
 
       {/* Profile Modal */}
       {selectedProfile && (
