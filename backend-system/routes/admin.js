@@ -1,4 +1,4 @@
-// routes/admin.js - Complete version
+// routes/admin.js - CLEAN VERSION (no duplicates)
 import express from 'express';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
@@ -81,7 +81,7 @@ router.get('/stats', async (req, res) => {
 });
 
 // @route   GET /api/admin/users
-// @desc    Get all users (THIS IS MISSING)
+// @desc    Get all users
 router.get('/users', async (req, res) => {
   try {
     const { limit = 100, search = '' } = req.query;
@@ -175,7 +175,7 @@ router.get('/companies', async (req, res) => {
 });
 
 // @route   GET /api/admin/jobs
-// @desc    Get all jobs (THIS IS MISSING)
+// @desc    Get all jobs
 router.get('/jobs', async (req, res) => {
   try {
     const { limit = 50, status = '' } = req.query;
@@ -218,7 +218,7 @@ router.get('/jobs', async (req, res) => {
 });
 
 // @route   GET /api/admin/applications
-// @desc    Get all applications (THIS IS MISSING)
+// @desc    Get all applications
 router.get('/applications', async (req, res) => {
   try {
     const { limit = 100, status = '' } = req.query;
@@ -316,175 +316,6 @@ router.put('/companies/:id/reject', async (req, res) => {
     console.error('❌ Reject company error:', error);
     res.status(500).json({
       message: 'Error rejecting company',
-      error: error.message
-    });
-  }
-});
-
-// @route   DELETE /api/admin/users/:id
-// @desc    Delete a user (THIS IS MISSING)
-router.delete('/users/:id', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Prevent self-deletion
-    if (user._id.toString() === req.user.id) {
-      return res.status(400).json({ message: 'Cannot delete your own account' });
-    }
-
-    // Delete user's data based on type
-    if (user.userType === 'jobseeker') {
-      await Application.deleteMany({ applicant: user._id });
-    } else if (user.userType === 'company') {
-      const jobs = await Job.find({ company: user._id });
-      const jobIds = jobs.map(job => job._id);
-      await Application.deleteMany({ job: { $in: jobIds } });
-      await Job.deleteMany({ company: user._id });
-    }
-
-    await User.findByIdAndDelete(req.params.id);
-
-    res.json({
-      message: 'User deleted successfully',
-      deletedUserId: req.params.id
-    });
-
-  } catch (error) {
-    console.error('❌ Delete user error:', error);
-    res.status(500).json({
-      message: 'Error deleting user',
-      error: error.message
-    });
-  }
-});
-
-// Add these routes to your existing admin.js file
-
-// @route   GET /api/admin/users
-// @desc    Get all users
-router.get('/users', async (req, res) => {
-  try {
-    const { limit = 100, search = '' } = req.query;
-
-    let filter = {};
-    if (search) {
-      filter = {
-        $or: [
-          { email: { $regex: search, $options: 'i' } },
-          { 'profile.firstName': { $regex: search, $options: 'i' } },
-          { 'profile.lastName': { $regex: search, $options: 'i' } }
-        ]
-      };
-    }
-
-    const users = await User.find(filter)
-      .select('-password')
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const formattedUsers = users.map(user => ({
-      _id: user._id,
-      email: user.email,
-      userType: user.userType,
-      profile: user.profile || {},
-      company: user.company || {},
-      approvalStatus: user.approvalStatus || 'approved',
-      isActive: user.isActive !== false,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    }));
-
-    res.json({
-      message: 'Users retrieved successfully',
-      users: formattedUsers,
-      total: formattedUsers.length
-    });
-
-  } catch (error) {
-    console.error('❌ Get users error:', error);
-    res.status(500).json({
-      message: 'Error fetching users',
-      error: error.message
-    });
-  }
-});
-
-// @route   GET /api/admin/jobs
-// @desc    Get all jobs
-router.get('/jobs', async (req, res) => {
-  try {
-    const { limit = 50, status = '' } = req.query;
-
-    let filter = {};
-    if (status) {
-      filter.status = status;
-    }
-
-    const jobs = await Job.find(filter)
-      .populate('company', 'company.name company.email')
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Add application counts
-    const jobsWithStats = await Promise.all(
-      jobs.map(async (job) => {
-        const applicationCount = await Application.countDocuments({ job: job._id });
-        return {
-          ...job,
-          applicationCount
-        };
-      })
-    );
-
-    res.json({
-      message: 'Jobs retrieved successfully',
-      jobs: jobsWithStats,
-      total: jobsWithStats.length
-    });
-
-  } catch (error) {
-    console.error('❌ Get jobs error:', error);
-    res.status(500).json({
-      message: 'Error fetching jobs',
-      error: error.message
-    });
-  }
-});
-
-// @route   GET /api/admin/applications
-// @desc    Get all applications
-router.get('/applications', async (req, res) => {
-  try {
-    const { limit = 100, status = '' } = req.query;
-
-    let filter = {};
-    if (status) {
-      filter.status = status;
-    }
-
-    const applications = await Application.find(filter)
-      .populate('applicant', 'profile.firstName profile.lastName email')
-      .populate('job', 'title company')
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 })
-      .lean();
-
-    res.json({
-      message: 'Applications retrieved successfully',
-      applications,
-      total: applications.length
-    });
-
-  } catch (error) {
-    console.error('❌ Get applications error:', error);
-    res.status(500).json({
-      message: 'Error fetching applications',
       error: error.message
     });
   }
