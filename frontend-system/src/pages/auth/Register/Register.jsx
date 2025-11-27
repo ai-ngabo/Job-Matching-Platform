@@ -101,11 +101,17 @@ const Register = () => {
       }
 
       try {
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        if (!clientId) {
+          console.error('❌ VITE_GOOGLE_CLIENT_ID is not configured in environment');
+          setError('Google Sign-In is not properly configured. Please contact support.');
+          return false;
+        }
+        
         window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1234567890-abcdefghijklmnop.apps.googleusercontent.com',
+          client_id: clientId,
           callback: handleGoogleSuccess,
-          ux_mode: 'popup',
-          locale: 'en'
+          ux_mode: 'popup'
         });
         
         // Render the button (Google doesn't accept percentage width, so we use CSS instead)
@@ -114,8 +120,7 @@ const Register = () => {
           {
             theme: 'outline',
             size: 'large',
-            text: 'signup_with',
-            locale: 'en'
+            text: 'signup_with'
           }
         );
         return true;
@@ -131,10 +136,10 @@ const Register = () => {
       return;
     }
 
-    // Load Google SDK if not already loaded
-    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+    // Load Google SDK if not already loaded (with explicit English locale)
+    if (!document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
       const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
+      script.src = 'https://accounts.google.com/gsi/client?hl=en';
       script.async = true;
       script.defer = true;
       script.onload = () => {
