@@ -96,10 +96,10 @@ const AdminDashboard = () => {
 
       // Fetch all data in parallel
       const [statsResponse, usersResponse, companiesResponse, jobsResponse] = await Promise.all([
-        api.get('admin/stats'),
-        api.get('admin/users?limit=100'),
-        api.get('admin/companies?limit=100'),
-        api.get('admin/jobs?limit=50')
+        api.get('/admin/stats'),
+        api.get('/admin/users?limit=100'),
+        api.get('/admin/companies?limit=100'),
+        api.get('/admin/jobs?limit=50')
       ]);
 
       console.log('✅ All admin data fetched successfully');
@@ -160,14 +160,14 @@ const AdminDashboard = () => {
 
   const handleApproveCompany = (companyId) => {
     handleApiAction(
-      () => api.put(`admin/companies/${companyId}/approve`),
+      () => api.put(`/admin/companies/${companyId}/approve`),
       'Company approved successfully!'
     );
   };
 
   const handleRejectCompany = (companyId) => {
     handleApiAction(
-      () => api.put(`admin/companies/${companyId}/reject`, {
+      () => api.put(`/admin/companies/${companyId}/reject`, {
         rejectionReason: 'Rejected by administrator'
       }),
       'Company rejected successfully!'
@@ -184,7 +184,7 @@ const AdminDashboard = () => {
     }
     
     handleApiAction(
-      () => api.delete(`admin/users/${userId}`),
+      () => api.delete(`/admin/users/${userId}`),
       'User deleted successfully!'
     );
   };
