@@ -12,7 +12,8 @@ import {
   Clock,
   Eye,
   MessageSquare,
-  Briefcase
+  Briefcase,
+  FileText
 } from 'lucide-react';
 import api from '../../../services/api';
 import ProfileModal from '../../../components/shared/ProfileModal/ProfileModal';
