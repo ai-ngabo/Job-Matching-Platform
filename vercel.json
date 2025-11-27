@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm --prefix ./frontend-system install && npm --prefix ./frontend-system run build",
+  "buildCommand": "cd frontend-system && npm install && npx vite build",
   "outputDirectory": "frontend-system/dist",
   "framework": "vite"
 }
