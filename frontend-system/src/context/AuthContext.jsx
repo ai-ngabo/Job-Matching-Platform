@@ -1,3 +1,4 @@
+// context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../services/authService';
 
@@ -16,11 +17,38 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const currentUser = authService.getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-    }
-    setLoading(false);
+    const initAuth = async () => {
+      const currentUser = authService.getCurrentUser();
+      const token = authService.getToken();
+      
+      console.log('🔄 Auth initialization:', {
+        hasUser: !!currentUser,
+        hasToken: !!token,
+        tokenType: token ? 'authToken' : 'none'
+      });
+
+      if (currentUser && token) {
+        // Verify token is still valid
+        try {
+          const response = await api.get('/api/auth/verify');
+          setUser(response.data.user);
+          console.log('✅ Token verified successfully');
+        } catch (error) {
+          console.error('❌ Token verification failed:', error);
+          authService.logout();
+        }
+      } else {
+        // Clear any inconsistent state
+        if (!token && currentUser) {
+          console.warn('⚠️ Inconsistent state: User without token');
+          authService.logout();
+        }
+      }
+      
+      setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (credentials) => {
@@ -59,7 +87,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !!authService.getToken(),
     loading
   };
 
