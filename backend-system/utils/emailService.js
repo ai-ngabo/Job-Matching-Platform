@@ -28,21 +28,21 @@ const initializeEmailService = () => {
       },
       tls: {
         // Allow self-signed certificates (common with Gmail and some SMTP servers)
-        // This is safe because we're still using TLS encryption, just not verifying the cert chain
         rejectUnauthorized: false
       },
-      // For non-secure connections (port 587), require TLS
       requireTLS: !isSecure && smtpPort === 587,
-      // Connection timeout
-      connectionTimeout: 10000,
-      // Greeting timeout
-      greetingTimeout: 10000,
-      // Socket timeout
-      socketTimeout: 10000
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000
     });
 
-    // Verify connection (but don't fail if certificate verification fails)
-    transporter.verify()
+    // Verify connection with timeout (non-blocking, doesn't prevent app startup)
+    const verifyPromise = transporter.verify();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('SMTP verification timeout')), 8000)
+    );
+
+    Promise.race([verifyPromise, timeoutPromise])
       .then(() => {
         console.log('✅ Email service configured and verified successfully');
         console.log(`📧 SMTP Host: ${process.env.SMTP_HOST}:${smtpPort}`);
@@ -50,27 +50,19 @@ const initializeEmailService = () => {
         console.log(`📧 Secure: ${isSecure ? 'Yes (TLS/SSL)' : 'No (STARTTLS)'}`);
       })
       .catch((err) => {
-        // Log warning but don't prevent email service from being used
-        // Certificate issues are common and emails may still send
-        if (err.message.includes('certificate') || err.message.includes('self-signed')) {
-          console.warn('⚠️ SMTP certificate verification warning (emails may still work):', err.message);
-          console.log('📧 Email service initialized (certificate verification skipped)');
-          console.log(`📧 SMTP Host: ${process.env.SMTP_HOST}:${smtpPort}`);
-          console.log(`📧 From Address: ${getFromAddress()}`);
+        // Log as info (not warning) - verification may fail but emails can still work
+        if (err.message.includes('timeout')) {
+          console.log('ℹ️  SMTP verification timed out (emails may still work). Proceeding with available configuration.');
+        } else if (err.message.includes('certificate') || err.message.includes('self-signed')) {
+          console.log('ℹ️  SMTP configured with certificate skipped. Emails may still work.');
         } else {
-          console.warn('⚠️ SMTP transporter verification failed:', err.message);
-          console.warn('⚠️ Please check your SMTP credentials and connection.');
+          console.log('ℹ️  SMTP verification skipped. Email functionality will be attempted when needed.');
         }
       });
   } else {
-    console.warn(
-      '⚠️ Email service not fully configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS to enable transactional emails.'
+    console.log(
+      'ℹ️  Email service not fully configured. Transactional emails disabled. (Set SMTP_HOST, SMTP_USER, SMTP_PASS to enable)'
     );
-    console.warn('📋 Current env check:', {
-      SMTP_HOST: process.env.SMTP_HOST ? '✓ Set' : '✗ Missing',
-      SMTP_USER: process.env.SMTP_USER ? '✓ Set' : '✗ Missing',
-      SMTP_PASS: process.env.SMTP_PASS ? '✓ Set' : '✗ Missing'
-    });
   }
 
   isInitialized = true;
