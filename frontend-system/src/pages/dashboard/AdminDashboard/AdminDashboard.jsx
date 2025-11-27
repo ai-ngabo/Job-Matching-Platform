@@ -16,16 +16,18 @@ import {
   Eye,
   Trash2,
   Shield,
-  RefreshCw
+  RefreshCw,
+  LogOut
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
+import { authService } from '../../../services/authService';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
@@ -37,7 +39,22 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
 
+  // Debug token on component mount
+  useEffect(() => {
+    console.log('🔍 Admin Dashboard Debug:');
+    console.log('User:', user);
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('authToken:', localStorage.getItem('authToken'));
+    console.log('token:', localStorage.getItem('token'));
+  }, [user, isAuthenticated]);
+
   // Check if user is admin
+  useEffect(() => {
+    if (user && user.userType !== 'admin') {
+      console.warn('⚠️ Non-admin user attempted to access admin dashboard');
+    }
+  }, [user]);
+
   if (user && user.userType !== 'admin') {
     return (
       <div className="admin-access-denied">
@@ -63,22 +80,29 @@ const AdminDashboard = () => {
       setLoading(true);
       setError('');
 
-      console.log('📊 Fetching all admin data...');
+      // Check authentication before making requests
+      const token = authService.getToken();
+      if (!token) {
+        setError('No authentication token found. Please log in again.');
+        return;
+      }
+
+      if (!user || user.userType !== 'admin') {
+        setError('Admin privileges required.');
+        return;
+      }
+
+      console.log('📊 Fetching all admin data with token:', token.substring(0, 20) + '...');
 
       // Fetch all data in parallel
       const [statsResponse, usersResponse, companiesResponse, jobsResponse] = await Promise.all([
-        api.get('/admin/stats'),
-        api.get('/admin/users?limit=100'),
-        api.get('/admin/companies?limit=100'),
-        api.get('/admin/jobs?limit=50')
+        api.get('/api/admin/stats'),
+        api.get('/api/admin/users?limit=100'),
+        api.get('/api/admin/companies?limit=100'),
+        api.get('/api/admin/jobs?limit=50')
       ]);
 
-      console.log('✅ All admin data fetched successfully:', {
-        stats: statsResponse.data,
-        users: usersResponse.data,
-        companies: companiesResponse.data,
-        jobs: jobsResponse.data
-      });
+      console.log('✅ All admin data fetched successfully');
 
       setStats(statsResponse.data.stats);
       setUsers(usersResponse.data.users || []);
@@ -93,88 +117,85 @@ const AdminDashboard = () => {
 
     } catch (err) {
       console.error('❌ Error fetching admin data:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to load admin data';
-      setError(errorMessage);
       
-      // Log detailed error info for debugging
-      if (err.response) {
-        console.error('Response status:', err.response.status);
-        console.error('Response data:', err.response.data);
+      if (err.response?.status === 401) {
+        setError('Authentication failed. Please log in again.');
+        logout();
+      } else if (err.response?.status === 403) {
+        setError('Access denied. Admin privileges required.');
+      } else if (err.response?.status === 404) {
+        setError('Admin API endpoints not found. Please check backend deployment.');
+      } else {
+        const errorMessage = err.response?.data?.message || err.message || 'Failed to load admin data';
+        setError(errorMessage);
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApproveCompany = async (companyId) => {
+  const handleApiAction = async (apiCall, successMessage) => {
     try {
-      console.log(`Approving company: ${companyId}`);
-      await api.put(`/admin/companies/${companyId}/approve`);
-      
-      // Update local state
-      setCompanies(prev => prev.map(company => 
-        company._id === companyId 
-          ? { ...company, approvalStatus: 'approved' }
-          : company
-      ));
-      
-      setPendingCompanies(prev => prev.filter(company => company._id !== companyId));
-      
-      // Refresh stats
-      await fetchAllData();
-      
-      alert('Company approved successfully!');
+      // Verify we have a token before proceeding
+      const token = authService.getToken();
+      if (!token) {
+        alert('No authentication token found. Please log in again.');
+        logout();
+        return;
+      }
+
+      await apiCall();
+      await fetchAllData(); // Refresh data
+      alert(successMessage);
     } catch (err) {
-      console.error('Error approving company:', err);
-      alert(err.response?.data?.message || 'Failed to approve company');
+      console.error('API action error:', err);
+      if (err.response?.status === 401) {
+        alert('Session expired. Please log in again.');
+        logout();
+      } else {
+        alert(err.response?.data?.message || 'Action failed');
+      }
     }
   };
 
-  const handleRejectCompany = async (companyId) => {
-    try {
-      console.log(`Rejecting company: ${companyId}`);
-      await api.put(`/admin/companies/${companyId}/reject`, {
+  const handleApproveCompany = (companyId) => {
+    handleApiAction(
+      () => api.put(`/api/admin/companies/${companyId}/approve`),
+      'Company approved successfully!'
+    );
+  };
+
+  const handleRejectCompany = (companyId) => {
+    handleApiAction(
+      () => api.put(`/api/admin/companies/${companyId}/reject`, {
         rejectionReason: 'Rejected by administrator'
-      });
-      
-      // Update local state
-      setCompanies(prev => prev.map(company => 
-        company._id === companyId 
-          ? { ...company, approvalStatus: 'rejected' }
-          : company
-      ));
-      
-      setPendingCompanies(prev => prev.filter(company => company._id !== companyId));
-      
-      // Refresh stats
-      await fetchAllData();
-      
-      alert('Company rejected successfully!');
-    } catch (err) {
-      console.error('Error rejecting company:', err);
-      alert(err.response?.data?.message || 'Failed to reject company');
-    }
+      }),
+      'Company rejected successfully!'
+    );
   };
 
-  const handleDeleteUser = async (userId) => {
+  const handleDeleteUser = (userId) => {
     if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
     
-    try {
-      console.log(`Deleting user: ${userId}`);
-      await api.delete(`/admin/users/${userId}`);
-      
-      // Update local state
-      setUsers(prev => prev.filter(user => user._id !== userId));
-      setCompanies(prev => prev.filter(company => company._id !== userId));
-      
-      // Refresh stats
-      await fetchAllData();
-      
-      alert('User deleted successfully!');
-    } catch (err) {
-      console.error('Error deleting user:', err);
-      alert(err.response?.data?.message || 'Failed to delete user');
+    // Prevent self-deletion
+    if (userId === user?._id) {
+      alert('You cannot delete your own account.');
+      return;
     }
+    
+    handleApiAction(
+      () => api.delete(`/api/admin/users/${userId}`),
+      'User deleted successfully!'
+    );
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const handleRetry = () => {
+    fetchAllData();
   };
 
   const StatCard = ({ icon: Icon, label, value, color, onClick, description }) => (
@@ -196,37 +217,37 @@ const AdminDashboard = () => {
     </div>
   );
 
-  const UserCard = ({ user }) => (
+  const UserCard = ({ user: userData }) => (
     <div className="user-card">
       <div className="user-avatar">
-        {user.profile?.firstName?.[0]}{user.profile?.lastName?.[0] || user.email[0].toUpperCase()}
+        {userData.profile?.firstName?.[0]}{userData.profile?.lastName?.[0] || userData.email[0].toUpperCase()}
       </div>
       <div className="user-info">
         <h4>
-          {user.profile?.firstName && user.profile?.lastName 
-            ? `${user.profile.firstName} ${user.profile.lastName}`
-            : user.email
+          {userData.profile?.firstName && userData.profile?.lastName 
+            ? `${userData.profile.firstName} ${userData.profile.lastName}`
+            : userData.email
           }
         </h4>
-        <p>{user.email}</p>
+        <p>{userData.email}</p>
         <div className="user-meta">
-          <span className={`user-type ${user.userType}`}>
-            {user.userType}
+          <span className={`user-type ${userData.userType}`}>
+            {userData.userType}
           </span>
-          <span className={`status-badge ${user.approvalStatus || 'approved'}`}>
-            {user.approvalStatus || 'approved'}
+          <span className={`status-badge ${userData.approvalStatus || 'approved'}`}>
+            {userData.approvalStatus || 'approved'}
           </span>
           <span className="user-date">
-            {new Date(user.createdAt).toLocaleDateString()}
+            {new Date(userData.createdAt).toLocaleDateString()}
           </span>
         </div>
       </div>
       <div className="user-actions">
-        <button className="action-btn view" onClick={() => setSelectedUser(user)}>
+        <button className="action-btn view" onClick={() => setSelectedUser(userData)}>
           <Eye size={16} />
         </button>
-        {user._id !== user?._id && ( // Prevent self-deletion
-          <button className="action-btn delete" onClick={() => handleDeleteUser(user._id)}>
+        {userData._id !== user?._id && ( // Prevent self-deletion
+          <button className="action-btn delete" onClick={() => handleDeleteUser(userData._id)}>
             <Trash2 size={16} />
           </button>
         )}
@@ -278,11 +299,11 @@ const AdminDashboard = () => {
     </div>
   );
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.profile?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.profile?.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.userType?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = users.filter(userData =>
+    userData.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    userData.profile?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    userData.profile?.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    userData.userType?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredCompanies = companies.filter(company =>
@@ -316,15 +337,21 @@ const AdminDashboard = () => {
         <div className="header-content">
           <h1>Admin Dashboard</h1>
           <p>Manage your Jobify platform with powerful admin tools</p>
+          {user && (
+            <div className="user-info">
+              <span>Welcome, {user.email} (Admin)</span>
+              <span className="user-id">User ID: {user._id}</span>
+            </div>
+          )}
         </div>
         <div className="header-actions">
-          <button className="btn-refresh" onClick={fetchAllData}>
-            <RefreshCw size={16} />
-            Refresh Data
+          <button className="btn-refresh" onClick={fetchAllData} disabled={loading}>
+            <RefreshCw size={16} className={loading ? 'spinning' : ''} />
+            {loading ? 'Loading...' : 'Refresh Data'}
           </button>
-          <button className="btn-export">
-            <Download size={16} />
-            Export Report
+          <button className="btn-logout" onClick={handleLogout}>
+            <LogOut size={16} />
+            Logout
           </button>
         </div>
       </div>
@@ -333,7 +360,9 @@ const AdminDashboard = () => {
         <div className="admin-error">
           <AlertCircle size={20} />
           <span>{error}</span>
-          <button onClick={fetchAllData} className="retry-btn">Retry</button>
+          <button onClick={handleRetry} className="retry-btn">
+            Retry
+          </button>
         </div>
       )}
 
@@ -500,23 +529,23 @@ const AdminDashboard = () => {
             <div className="activity-section">
               <h3>Recent Users</h3>
               <div className="activity-list">
-                {users.slice(0, 5).map(user => (
-                  <div key={user._id} className="activity-item">
+                {users.slice(0, 5).map(userData => (
+                  <div key={userData._id} className="activity-item">
                     <div className="activity-avatar">
-                      {user.profile?.firstName?.[0] || user.email[0].toUpperCase()}
+                      {userData.profile?.firstName?.[0] || userData.email[0].toUpperCase()}
                     </div>
                     <div className="activity-content">
                       <p>
                         <strong>
-                          {user.profile?.firstName && user.profile?.lastName 
-                            ? `${user.profile.firstName} ${user.profile.lastName}`
-                            : user.email
+                          {userData.profile?.firstName && userData.profile?.lastName 
+                            ? `${userData.profile.firstName} ${userData.profile.lastName}`
+                            : userData.email
                           }
                         </strong>
-                        {' '}joined as {user.userType}
+                        {' '}joined as {userData.userType}
                       </p>
                       <span className="activity-time">
-                        {new Date(user.createdAt).toLocaleDateString()}
+                        {new Date(userData.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
@@ -530,8 +559,8 @@ const AdminDashboard = () => {
           <div className="users-section">
             <h2>User Management ({filteredUsers.length})</h2>
             <div className="users-grid">
-              {filteredUsers.map(user => (
-                <UserCard key={user._id} user={user} />
+              {filteredUsers.map(userData => (
+                <UserCard key={userData._id} user={userData} />
               ))}
             </div>
             {filteredUsers.length === 0 && (
