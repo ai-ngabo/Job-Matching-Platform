@@ -1,267 +1,336 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Eye, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import JobPostForm from '../../../components/jobs/JobPostForm';
-import './JobManagement.css';
+import { useNavigate } from 'react-router-dom';
+import api from '../../../services/api';
+import './JobSeekerDashboard.css';
 
-const JobManagement = () => {
+const JobSeekerDashboard = () => {
   const { user } = useAuth();
-  const [jobs, setJobs] = useState([]);
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    totalApplications: 0,
+    aiMatchScore: 0,
+    profileViews: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editingJob, setEditingJob] = useState(null);
-  const [filter, setFilter] = useState('all');
+  const [recommendedJobs, setRecommendedJobs] = useState([]);
 
   useEffect(() => {
-    fetchJobs();
+    fetchDashboardData();
   }, []);
 
-  const fetchJobs = async () => {
+  // Helper function to calculate profile completeness
+  const calculateProfileCompleteness = (userProfile) => {
+    if (!userProfile) return 0;
+    
+    const profile = userProfile.profile || {};
+    const documents = profile.documents || {};
+    
+    let score = 0;
+    let totalFields = 0;
+    
+    // Basic profile info (40%)
+    if (profile.firstName) score += 10;
+    if (profile.lastName) score += 10;
+    if (profile.bio) score += 10;
+    if (profile.skills && profile.skills.length > 0) score += 10;
+    totalFields += 4;
+    
+    // Experience and education (30%)
+    if (profile.experience && profile.experience.length > 0) score += 15;
+    if (profile.education && profile.education.length > 0) score += 15;
+    totalFields += 2;
+    
+    // Documents (30%)
+    if (documents.cv?.url) score += 15;
+    if (documents.coverLetter?.url) score += 10;
+    if (profile.profilePicture) score += 5;
+    totalFields += 3;
+    
+    return Math.round((score / (totalFields * 10)) * 100);
+  };
+
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      setError('');
+
+      // Fetch all data in parallel for better performance
+      console.log('📊 Fetching dashboard data...');
       
-      if (!token) {
-        console.warn('No token found - user may not be logged in');
-        setError('Not authenticated. Please log in.');
-        setLoading(false);
-        return;
-      }
+      const [statsResponse, jobsResponse, profileResponse] = await Promise.all([
+        api.get('/applications/stats'),
+        api.get('/jobs?limit=6'),
+        api.get('/users/profile')
+      ]);
+
+      const applicationStats = statsResponse.data.stats || {};
+      const jobs = jobsResponse.data.jobs || [];
+      const userData = profileResponse.data.user || profileResponse.data;
+      const userProfile = userData.profile || {};
       
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${apiBase}/jobs/company/my-jobs`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      console.log('✅ Dashboard data fetched:', {
+        applicationStats,
+        jobsCount: jobs.length,
+        userProfile: userProfile
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Server error: ${response.status}`);
-      }
+      // Calculate AI match score based on profile completeness and job compatibility
+      const totalApps = applicationStats.totalApplications || 0;
+      
+      // Calculate profile completeness score (0-100)
+      const profileCompleteness = calculateProfileCompleteness(userData);
+      
+      // Calculate application success rate (if any applications)
+      const successRate = totalApps > 0 
+        ? Math.round(((applicationStats.statusCounts?.accepted || 0) / totalApps) * 50) 
+        : 0;
+      
+      // Combine scores for AI match score (60% profile completeness, 40% success rate)
+      const matchScore = Math.round((profileCompleteness * 0.6) + (successRate * 0.4));
+      
+      // Ensure minimum score of 10% for users with some profile data
+      const finalMatchScore = Math.max(matchScore, profileCompleteness > 0 ? 10 : 0);
+      
+      console.log('🎯 AI Match Score breakdown:', {
+        profileCompleteness,
+        successRate,
+        finalScore: finalMatchScore
+      });
 
-      const data = await response.json();
-      setJobs(data.jobs || []);
-    } catch (err) {
-      console.error('Error fetching jobs:', err);
-      setError(err.message);
+      setStats({
+        totalApplications: totalApps,
+        aiMatchScore: finalMatchScore,
+        profileViews: userProfile.views || 0
+      });
+
+      setRecommendedJobs(jobs);
+    } catch (error) {
+      console.error('❌ Error fetching dashboard data:', error);
+      console.error('❌ Error response:', error.response?.data);
+      setError(error.response?.data?.message || error.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteJob = async (jobId) => {
-    if (!confirm('Are you sure you want to delete this job?')) return;
-
-    try {
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      
-      if (!token) {
-        alert('Not authenticated. Please log in.');
-        return;
-      }
-      
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${apiBase}/jobs/${jobId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to delete job');
-      }
-
-      setJobs(jobs.filter(j => j._id !== jobId));
-      alert('Job deleted successfully');
-    } catch (err) {
-      console.error('Error deleting job:', err);
-      alert('Failed to delete job: ' + err.message);
-    }
+  const getMatchScoreColor = (score) => {
+    if (score >= 80) return '#10b981'; // Green
+    if (score >= 60) return '#f59e0b'; // Yellow
+    if (score >= 40) return '#f97316'; // Orange
+    return '#ef4444'; // Red
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'active':
-        return <CheckCircle size={18} className="status-icon active" />;
-      case 'paused':
-        return <Clock size={18} className="status-icon paused" />;
-      case 'closed':
-        return <XCircle size={18} className="status-icon closed" />;
-      default:
-        return null;
-    }
+  const getMatchScoreMessage = (score) => {
+    if (score >= 80) return 'Excellent match rate!';
+    if (score >= 60) return 'Good compatibility';
+    if (score >= 40) return 'Average matching';
+    return 'Complete your profile to improve';
   };
-
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'active':
-        return 'status-active';
-      case 'paused':
-        return 'status-paused';
-      case 'closed':
-        return 'status-closed';
-      default:
-        return '';
-    }
-  };
-
-  const filteredJobs = filter === 'all' 
-    ? jobs 
-    : jobs.filter(j => j.status === filter);
-
-  if (!user || user.userType !== 'company') {
-    return (
-      <div className="job-management-container">
-        <p>Only companies can post jobs</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="job-management-container">
-      <div className="job-management-header">
-        <h1>Job Management</h1>
-        <button 
-          className="btn-post-job"
-          onClick={() => {
-            setEditingJob(null);
-            setShowForm(true);
-          }}
-        >
-          <Plus size={20} />
-          Post New Job
-        </button>
+    <div className="jobseeker-dashboard">
+      <div className="dashboard-header">
+        <h1>Welcome back, {user?.profile?.firstName || 'User'}!</h1>
+        <p>Your AI-powered job search starts here</p>
       </div>
 
-      {error && <div className="job-error">{error}</div>}
-
-      {showForm && (
-        <JobPostForm
-          job={editingJob}
-          onSuccess={() => {
-            setShowForm(false);
-            setEditingJob(null);
-            fetchJobs();
-          }}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingJob(null);
-          }}
-        />
+      {error && (
+        <div className="error-message" style={{ 
+          padding: '12px', 
+          marginBottom: '20px', 
+          backgroundColor: '#fee', 
+          color: '#c33', 
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span>⚠️</span> {error}
+        </div>
       )}
 
-      {!showForm && (
-        <>
-          <div className="job-filters">
-            <button
-              className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-              onClick={() => setFilter('all')}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon">🎯</div>
+          <div className="stat-content">
+            <h3>AI Match Score</h3>
+            <div 
+              className="stat-value" 
+              style={{ color: getMatchScoreColor(stats.aiMatchScore) }}
             >
-              All Jobs ({jobs.length})
+              {loading ? '...' : `${stats.aiMatchScore}%`}
+            </div>
+            <p>{loading ? 'Calculating...' : getMatchScoreMessage(stats.aiMatchScore)}</p>
+            {!loading && stats.aiMatchScore < 60 && (
+              <button 
+                className="improve-btn"
+                onClick={() => navigate('/profile')}
+              >
+                Improve Score
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon">📨</div>
+          <div className="stat-content">
+            <h3>Applications</h3>
+            <div className="stat-value">
+              {loading ? '...' : stats.totalApplications}
+            </div>
+            <p>Total applications sent</p>
+            {!loading && stats.totalApplications === 0 && (
+              <button 
+                className="action-link"
+                onClick={() => navigate('/jobs')}
+              >
+                Start Applying
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon">👁️</div>
+          <div className="stat-content">
+            <h3>Profile Views</h3>
+            <div className="stat-value">
+              {loading ? '...' : stats.profileViews}
+            </div>
+            <p>By employers</p>
+            {!loading && stats.profileViews === 0 && (
+              <button 
+                className="action-link"
+                onClick={() => navigate('/profile')}
+              >
+                Boost Visibility
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-actions">
+        <div className="action-card">
+          <h3>Quick Actions</h3>
+          <div className="action-buttons">
+            <button 
+              className="action-btn primary"
+              onClick={() => navigate('/jobs')}
+            >
+              🔍 Browse Jobs
             </button>
-            <button
-              className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
-              onClick={() => setFilter('active')}
+            <button 
+              className="action-btn secondary"
+              onClick={() => navigate('/applications')}
             >
-              Active ({jobs.filter(j => j.status === 'active').length})
+              📋 My Applications
             </button>
-            <button
-              className={`filter-btn ${filter === 'paused' ? 'active' : ''}`}
-              onClick={() => setFilter('paused')}
+            <button 
+              className="action-btn tertiary"
+              onClick={() => navigate('/profile')}
             >
-              Paused ({jobs.filter(j => j.status === 'paused').length})
-            </button>
-            <button
-              className={`filter-btn ${filter === 'closed' ? 'active' : ''}`}
-              onClick={() => setFilter('closed')}
-            >
-              Closed ({jobs.filter(j => j.status === 'closed').length})
+              📝 Update Profile
             </button>
           </div>
+        </div>
 
+        <div className="recommendation-card">
+          <div className="card-header">
+            <h3>🤖 Recommended Jobs</h3>
+            <button 
+              className="view-all-btn"
+              onClick={() => navigate('/jobs')}
+            >
+              View All →
+            </button>
+          </div>
           {loading ? (
-            <div className="job-loading">Loading jobs...</div>
-          ) : filteredJobs.length === 0 ? (
-            <div className="job-empty">
-              <p>No jobs posted yet</p>
-              <button 
-                className="btn-post-job-empty"
-                onClick={() => setShowForm(true)}
-              >
-                Post Your First Job
-              </button>
+            <div className="recommendation-placeholder">
+              <div className="loading-spinner-small"></div>
+              <p>Finding your perfect matches...</p>
+            </div>
+          ) : recommendedJobs.length > 0 ? (
+            <div className="recommendation-list">
+              {recommendedJobs.map((job) => (
+                <div 
+                  key={job._id} 
+                  className="recommendation-item"
+                  onClick={() => navigate(`/jobs/${job._id}`)}
+                >
+                  <div className="job-header">
+                    <h4>{job.title}</h4>
+                    <span className="job-type">{job.jobType}</span>
+                  </div>
+                  <p className="company-info">{job.companyName} • {job.location}</p>
+                  <div className="job-meta">
+                    <span className="salary">
+                      {job.salaryRange?.min ? `$${job.salaryRange.min} - $${job.salaryRange.max}` : 'Competitive'}
+                    </span>
+                    <span className="applicants">
+                      {job.applicationCount || 0} applicants
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="jobs-table-wrapper">
-              <table className="jobs-table">
-                <thead>
-                  <tr>
-                    <th>Job Title</th>
-                    <th>Type</th>
-                    <th>Location</th>
-                    <th>Status</th>
-                    <th>Views</th>
-                    <th>Applications</th>
-                    <th>Posted</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredJobs.map((job) => (
-                    <tr key={job._id}>
-                      <td className="job-title">{job.title}</td>
-                      <td>{job.jobType}</td>
-                      <td>{job.location}</td>
-                      <td>
-                        <span className={`status-badge ${getStatusClass(job.status)}`}>
-                          {getStatusIcon(job.status)}
-                          {job.status}
-                        </span>
-                      </td>
-                      <td className="text-center">{job.views || 0}</td>
-                      <td className="text-center">{job.applicationCount || 0}</td>
-                      <td>{new Date(job.createdAt).toLocaleDateString()}</td>
-                      <td className="job-actions">
-                        <button
-                          className="action-btn view-btn"
-                          title="View"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          className="action-btn edit-btn"
-                          onClick={() => {
-                            setEditingJob(job);
-                            setShowForm(true);
-                          }}
-                          title="Edit"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          className="action-btn delete-btn"
-                          onClick={() => handleDeleteJob(job._id)}
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="recommendation-placeholder">
+              <p>Complete your profile for better matches</p>
+              <small>Update your skills, experience, and preferences to see personalized recommendations</small>
+              <button 
+                className="btn-primary"
+                onClick={() => navigate('/profile')}
+              >
+                Complete Profile
+              </button>
             </div>
           )}
-        </>
+        </div>
+
+        <div className="saved-jobs-card">
+          <div className="card-header">
+            <h3>📌 Saved Jobs</h3>
+            <button 
+              className="view-all-btn"
+              onClick={() => navigate('/saved-jobs')}
+            >
+              View All →
+            </button>
+          </div>
+          <p className="card-subtitle">Your collection of jobs you're interested in</p>
+          <div className="saved-jobs-preview">
+            <p className="info-text">Save jobs to apply later or compare opportunities</p>
+            <button 
+              className="browse-saved-btn"
+              onClick={() => navigate('/saved-jobs')}
+            >
+              View Saved Jobs
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Profile completeness prompt */}
+      {!loading && stats.aiMatchScore < 70 && (
+        <div className="improvement-banner">
+          <div className="banner-content">
+            <h4>🚀 Boost Your AI Match Score!</h4>
+            <p>Complete your profile to get better job recommendations and increase your chances</p>
+            <button 
+              className="btn-primary"
+              onClick={() => navigate('/profile')}
+            >
+              Improve Profile
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
 };
 
-export default JobManagement;
+export default JobSeekerDashboard;

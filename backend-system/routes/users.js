@@ -142,4 +142,37 @@ router.get('/jobseekers', auth, async (req, res) => {
   }
 });
 
+// @route   PUT /api/users/profile/view
+// @desc    Increment profile view count
+// @access  Private (Company only)
+router.put('/profile/view/:userId', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'company') {
+      return res.status(403).json({ message: 'Only companies can view profiles' });
+    }
+
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Increment profile views
+    user.profile.views = (user.profile.views || 0) + 1;
+    user.profile.lastViewed = new Date();
+    
+    await user.save();
+
+    res.json({ 
+      message: 'Profile view recorded',
+      views: user.profile.views 
+    });
+  } catch (error) {
+    console.error('Profile view error:', error);
+    res.status(500).json({ 
+      message: 'Error recording profile view',
+      error: error.message 
+    });
+  }
+});
+
 export default router;
