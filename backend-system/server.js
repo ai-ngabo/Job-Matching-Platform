@@ -11,6 +11,7 @@ import helmet from 'helmet';
 // Import routes
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
+import adminRoutes from './routes/admin.js';
 import uploadRoutes from './routes/upload.js';
 import jobRoutes from './routes/jobs.js';
 import applicationRoutes from './routes/applications.js';
@@ -82,7 +83,8 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/test-email', testEmailRoutes); // Test email routes (remove in production)
+app.use('/api/test-email', testEmailRoutes); 
+app.use('/api/admin', adminRoutes);
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/job-platform-rwanda')
