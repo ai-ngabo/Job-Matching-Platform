@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
 import './JobManagement.css';
 
-const JobManagement = () => {  // ✅ CHANGED: JobSeekerDashboard -> JobManagement
+const JobManagement = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
@@ -333,4 +333,4 @@ const JobManagement = () => {  // ✅ CHANGED: JobSeekerDashboard -> JobManageme
   );
 };
 
-export default JobManagement;  // ✅ CHANGED: JobSeekerDashboard -> JobManagement
+export default JobManagement;  
