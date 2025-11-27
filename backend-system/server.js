@@ -82,8 +82,7 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/test-email', testEmailRoutes); 
-app.use('/api/admin', adminRoutes);
+app.use('/api/test-email', testEmailRoutes);
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/job-platform-rwanda')
