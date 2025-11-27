@@ -149,64 +149,63 @@ router.post('/register', async (req, res) => {
 
 // Login endpoint
 router.post('/login', async (req, res) => {
+  console.log('🔐 Login attempt received:', {
+    email: req.body.email,
+    timestamp: new Date().toISOString(),
+    hasPassword: !!req.body.password,
+    ip: req.ip || req.connection.remoteAddress
+  });
+  
   try {
     const { email, password } = req.body;
     
-    console.log('🔐 Login attempt:', { email });
-
-    if (!email || !password) {
-      return res.status(400).json({ 
-        message: 'Email and password are required' 
-      });
-    }
-
+    console.log('🔍 Looking for user:', email);
+    
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ 
-        message: 'Invalid email or password' 
-      });
+      console.log('❌ User not found:', email);
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-
+    
+    console.log('✅ User found:', {
+      id: user._id,
+      userType: user.userType,
+      email: user.email
+    });
+    
     // Check password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(400).json({ 
-        message: 'Invalid email or password' 
-      });
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log('🔑 Password match:', isMatch);
+    
+    if (!isMatch) {
+      console.log('❌ Invalid password for user:', email);
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-
-    // Check approval for companies
-    if (user.userType === 'company' && user.approvalStatus !== 'approved') {
-      return res.status(403).json({
-        message: 'Company account not yet approved',
-        approvalStatus: user.approvalStatus
-      });
-    }
-
+    
     // Generate token
-    const token = generateToken(user._id);
-
+    const token = jwt.sign(
+      { id: user._id }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '7d' }
+    );
+    
+    console.log('✅ Login successful for:', email);
+    
     res.json({
-      message: 'Login successful!',
       token,
       user: {
-        id: user._id,
-        userType: user.userType,
+        _id: user._id,
         email: user.email,
+        userType: user.userType,
         profile: user.profile,
-        company: user.company,
-        approvalStatus: user.approvalStatus
+        company: user.company
       }
     });
-
-
+    
   } catch (error) {
-    console.error('❌ Login error:', error);
-    res.status(500).json({ 
-      message: 'Server error during login',
-      error: error.message 
-    });
+    console.error('❌ Backend login error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
