@@ -32,8 +32,8 @@ const JobDetails = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-      const url = `${apiBase}/api/jobs/${jobId}`; 
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+      const url = `${apiBase}/jobs/${jobId}`; 
       console.log('  → URL:', url);
 
       const response = await fetch(url, { headers });
@@ -54,8 +54,8 @@ const JobDetails = () => {
       // If company is populated, fetch full company details
       if (jobData.company && typeof jobData.company === 'object' && jobData.company._id) {
         try {
-          const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-          const companyResponse = await fetch(`${apiBase}/api/users/profile`, {
+          const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+          const companyResponse = await fetch(`${apiBase}/users/profile`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
