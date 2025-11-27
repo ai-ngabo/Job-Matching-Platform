@@ -250,6 +250,25 @@ router.get('/applications', async (req, res) => {
   }
 });
 
+// Add this at the TOP of your routes in admin.js, right after router.use(requireAdmin)
+router.get('/debug', (req, res) => {
+  console.log('🔍 Admin debug route hit');
+  res.json({
+    message: 'Admin routes are working',
+    timestamp: new Date().toISOString(),
+    routes: [
+      '/stats',
+      '/users', 
+      '/companies',
+      '/jobs',
+      '/applications',
+      '/companies/:id/approve',
+      '/companies/:id/reject',
+      '/users/:id'
+    ]
+  });
+});
+
 // @route   PUT /api/admin/companies/:id/approve
 // @desc    Approve a company
 router.put('/companies/:id/approve', async (req, res) => {
@@ -360,6 +379,18 @@ router.delete('/users/:id', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Add this right after router.use(requireAdmin) in admin.js
+router.use((req, res, next) => {
+  console.log('🛣️ Admin route accessed:', {
+    method: req.method,
+    path: req.path,
+    originalUrl: req.originalUrl,
+    query: req.query,
+    timestamp: new Date().toISOString()
+  });
+  next();
 });
 
 export default router;
