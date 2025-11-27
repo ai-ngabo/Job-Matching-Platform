@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
-import './JobSeekerDashboard.css';
+import './JobManagement.css';
 
-const JobSeekerDashboard = () => {
+const JobManagement = () => {  // ✅ CHANGED: JobSeekerDashboard -> JobManagement
   const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
@@ -23,31 +23,31 @@ const JobSeekerDashboard = () => {
   // Helper function to calculate profile completeness
   const calculateProfileCompleteness = (userProfile) => {
     if (!userProfile) return 0;
-    
+
     const profile = userProfile.profile || {};
     const documents = profile.documents || {};
-    
+
     let score = 0;
     let totalFields = 0;
-    
+
     // Basic profile info (40%)
     if (profile.firstName) score += 10;
     if (profile.lastName) score += 10;
     if (profile.bio) score += 10;
     if (profile.skills && profile.skills.length > 0) score += 10;
     totalFields += 4;
-    
+
     // Experience and education (30%)
-    if (profile.experience && profile.experience.length > 0) score += 15;
-    if (profile.education && profile.education.length > 0) score += 15;
+    if (profile.experience && profile.experience.length > 0) score += 15;  
+    if (profile.education && profile.education.length > 0) score += 15;    
     totalFields += 2;
-    
+
     // Documents (30%)
     if (documents.cv?.url) score += 15;
     if (documents.coverLetter?.url) score += 10;
     if (profile.profilePicture) score += 5;
     totalFields += 3;
-    
+
     return Math.round((score / (totalFields * 10)) * 100);
   };
 
@@ -58,7 +58,7 @@ const JobSeekerDashboard = () => {
 
       // Fetch all data in parallel for better performance
       console.log('📊 Fetching dashboard data...');
-      
+
       const [statsResponse, jobsResponse, profileResponse] = await Promise.all([
         api.get('/applications/stats'),
         api.get('/jobs?limit=6'),
@@ -67,9 +67,9 @@ const JobSeekerDashboard = () => {
 
       const applicationStats = statsResponse.data.stats || {};
       const jobs = jobsResponse.data.jobs || [];
-      const userData = profileResponse.data.user || profileResponse.data;
+      const userData = profileResponse.data.user || profileResponse.data;  
       const userProfile = userData.profile || {};
-      
+
       console.log('✅ Dashboard data fetched:', {
         applicationStats,
         jobsCount: jobs.length,
@@ -78,21 +78,21 @@ const JobSeekerDashboard = () => {
 
       // Calculate AI match score based on profile completeness and job compatibility
       const totalApps = applicationStats.totalApplications || 0;
-      
+
       // Calculate profile completeness score (0-100)
-      const profileCompleteness = calculateProfileCompleteness(userData);
-      
+      const profileCompleteness = calculateProfileCompleteness(userData);  
+
       // Calculate application success rate (if any applications)
-      const successRate = totalApps > 0 
-        ? Math.round(((applicationStats.statusCounts?.accepted || 0) / totalApps) * 50) 
+      const successRate = totalApps > 0
+        ? Math.round(((applicationStats.statusCounts?.accepted || 0) / totalApps) * 50)
         : 0;
-      
+
       // Combine scores for AI match score (60% profile completeness, 40% success rate)
       const matchScore = Math.round((profileCompleteness * 0.6) + (successRate * 0.4));
-      
-      // Ensure minimum score of 10% for users with some profile data
+
+      // Ensure minimum score of 10% for users with some profile data      
       const finalMatchScore = Math.max(matchScore, profileCompleteness > 0 ? 10 : 0);
-      
+
       console.log('🎯 AI Match Score breakdown:', {
         profileCompleteness,
         successRate,
@@ -132,16 +132,16 @@ const JobSeekerDashboard = () => {
   return (
     <div className="jobseeker-dashboard">
       <div className="dashboard-header">
-        <h1>Welcome back, {user?.profile?.firstName || 'User'}!</h1>
+        <h1>Welcome back, {user?.profile?.firstName || 'User'}!</h1>       
         <p>Your AI-powered job search starts here</p>
       </div>
 
       {error && (
-        <div className="error-message" style={{ 
-          padding: '12px', 
-          marginBottom: '20px', 
-          backgroundColor: '#fee', 
-          color: '#c33', 
+        <div className="error-message" style={{
+          padding: '12px',
+          marginBottom: '20px',
+          backgroundColor: '#fee',
+          color: '#c33',
           borderRadius: '4px',
           display: 'flex',
           alignItems: 'center',
@@ -156,15 +156,15 @@ const JobSeekerDashboard = () => {
           <div className="stat-icon">🎯</div>
           <div className="stat-content">
             <h3>AI Match Score</h3>
-            <div 
-              className="stat-value" 
-              style={{ color: getMatchScoreColor(stats.aiMatchScore) }}
+            <div
+              className="stat-value"
+              style={{ color: getMatchScoreColor(stats.aiMatchScore) }}    
             >
               {loading ? '...' : `${stats.aiMatchScore}%`}
             </div>
             <p>{loading ? 'Calculating...' : getMatchScoreMessage(stats.aiMatchScore)}</p>
             {!loading && stats.aiMatchScore < 60 && (
-              <button 
+              <button
                 className="improve-btn"
                 onClick={() => navigate('/profile')}
               >
@@ -183,7 +183,7 @@ const JobSeekerDashboard = () => {
             </div>
             <p>Total applications sent</p>
             {!loading && stats.totalApplications === 0 && (
-              <button 
+              <button
                 className="action-link"
                 onClick={() => navigate('/jobs')}
               >
@@ -202,7 +202,7 @@ const JobSeekerDashboard = () => {
             </div>
             <p>By employers</p>
             {!loading && stats.profileViews === 0 && (
-              <button 
+              <button
                 className="action-link"
                 onClick={() => navigate('/profile')}
               >
@@ -217,19 +217,19 @@ const JobSeekerDashboard = () => {
         <div className="action-card">
           <h3>Quick Actions</h3>
           <div className="action-buttons">
-            <button 
+            <button
               className="action-btn primary"
               onClick={() => navigate('/jobs')}
             >
               🔍 Browse Jobs
             </button>
-            <button 
+            <button
               className="action-btn secondary"
               onClick={() => navigate('/applications')}
             >
               📋 My Applications
             </button>
-            <button 
+            <button
               className="action-btn tertiary"
               onClick={() => navigate('/profile')}
             >
@@ -241,7 +241,7 @@ const JobSeekerDashboard = () => {
         <div className="recommendation-card">
           <div className="card-header">
             <h3>🤖 Recommended Jobs</h3>
-            <button 
+            <button
               className="view-all-btn"
               onClick={() => navigate('/jobs')}
             >
@@ -256,14 +256,14 @@ const JobSeekerDashboard = () => {
           ) : recommendedJobs.length > 0 ? (
             <div className="recommendation-list">
               {recommendedJobs.map((job) => (
-                <div 
-                  key={job._id} 
+                <div
+                  key={job._id}
                   className="recommendation-item"
                   onClick={() => navigate(`/jobs/${job._id}`)}
                 >
                   <div className="job-header">
                     <h4>{job.title}</h4>
-                    <span className="job-type">{job.jobType}</span>
+                    <span className="job-type">{job.jobType}</span>        
                   </div>
                   <p className="company-info">{job.companyName} • {job.location}</p>
                   <div className="job-meta">
@@ -281,7 +281,7 @@ const JobSeekerDashboard = () => {
             <div className="recommendation-placeholder">
               <p>Complete your profile for better matches</p>
               <small>Update your skills, experience, and preferences to see personalized recommendations</small>
-              <button 
+              <button
                 className="btn-primary"
                 onClick={() => navigate('/profile')}
               >
@@ -294,7 +294,7 @@ const JobSeekerDashboard = () => {
         <div className="saved-jobs-card">
           <div className="card-header">
             <h3>📌 Saved Jobs</h3>
-            <button 
+            <button
               className="view-all-btn"
               onClick={() => navigate('/saved-jobs')}
             >
@@ -304,7 +304,7 @@ const JobSeekerDashboard = () => {
           <p className="card-subtitle">Your collection of jobs you're interested in</p>
           <div className="saved-jobs-preview">
             <p className="info-text">Save jobs to apply later or compare opportunities</p>
-            <button 
+            <button
               className="browse-saved-btn"
               onClick={() => navigate('/saved-jobs')}
             >
@@ -320,7 +320,7 @@ const JobSeekerDashboard = () => {
           <div className="banner-content">
             <h4>🚀 Boost Your AI Match Score!</h4>
             <p>Complete your profile to get better job recommendations and increase your chances</p>
-            <button 
+            <button
               className="btn-primary"
               onClick={() => navigate('/profile')}
             >
@@ -333,4 +333,4 @@ const JobSeekerDashboard = () => {
   );
 };
 
-export default JobSeekerDashboard;
+export default JobManagement;  // ✅ CHANGED: JobSeekerDashboard -> JobManagement
