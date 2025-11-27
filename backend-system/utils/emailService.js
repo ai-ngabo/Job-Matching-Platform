@@ -27,7 +27,6 @@ const initializeEmailService = () => {
         pass: process.env.SMTP_PASS
       },
       tls: {
-        // Allow self-signed certificates (common with Gmail and some SMTP servers)
         rejectUnauthorized: false
       },
       requireTLS: !isSecure && smtpPort === 587,
@@ -36,33 +35,22 @@ const initializeEmailService = () => {
       socketTimeout: 5000
     });
 
-    // Verify connection with timeout (non-blocking, doesn't prevent app startup)
-    const verifyPromise = transporter.verify();
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('SMTP verification timeout')), 8000)
-    );
+    // Verify connection asynchronously in background (non-blocking, fire-and-forget)
+    // Don't await or use Promise.race - just let it happen in the background
+    setImmediate(() => {
+      transporter.verify()
+        .then(() => {
+          console.log('✅ Email service verified');
+        })
+        .catch(() => {
+          // Silently ignore verification errors - don't log anything
+          // Email will attempt to send when needed
+        });
+    });
 
-    Promise.race([verifyPromise, timeoutPromise])
-      .then(() => {
-        console.log('✅ Email service configured and verified successfully');
-        console.log(`📧 SMTP Host: ${process.env.SMTP_HOST}:${smtpPort}`);
-        console.log(`📧 From Address: ${getFromAddress()}`);
-        console.log(`📧 Secure: ${isSecure ? 'Yes (TLS/SSL)' : 'No (STARTTLS)'}`);
-      })
-      .catch((err) => {
-        // Log as info (not warning) - verification may fail but emails can still work
-        if (err.message.includes('timeout')) {
-          console.log('ℹ️  SMTP verification timed out (emails may still work). Proceeding with available configuration.');
-        } else if (err.message.includes('certificate') || err.message.includes('self-signed')) {
-          console.log('ℹ️  SMTP configured with certificate skipped. Emails may still work.');
-        } else {
-          console.log('ℹ️  SMTP verification skipped. Email functionality will be attempted when needed.');
-        }
-      });
+    console.log(`📧 Email service initialized for ${process.env.SMTP_HOST}:${smtpPort}`);
   } else {
-    console.log(
-      'ℹ️  Email service not fully configured. Transactional emails disabled. (Set SMTP_HOST, SMTP_USER, SMTP_PASS to enable)'
-    );
+    console.log('ℹ️  Email service disabled (SMTP not configured)');
   }
 
   isInitialized = true;
