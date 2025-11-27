@@ -798,6 +798,45 @@
   flex-wrap: wrap;
 }
 
+/* Add these to your existing CSS */
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.status-badge.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.approved {
+  background: #d1edff;
+  color: #0c5460;
+}
+
+.status-badge.rejected {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.job-count {
+  background: #e9ecef;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+}
+
+.empty-state.success {
+  color: #28a745;
+}
+
+.empty-state.success svg {
+  color: #28a745;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .admin-header {

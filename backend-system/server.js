@@ -15,7 +15,6 @@ import adminRoutes from './routes/admin.js';
 import uploadRoutes from './routes/upload.js';
 import jobRoutes from './routes/jobs.js';
 import applicationRoutes from './routes/applications.js';
-import adminRoutes from './routes/admin.js';
 import chatbotRoutes from './routes/chatbot.js';
 import aiRoutes from './routes/ai.js';
 import testEmailRoutes from './routes/test-email.js';

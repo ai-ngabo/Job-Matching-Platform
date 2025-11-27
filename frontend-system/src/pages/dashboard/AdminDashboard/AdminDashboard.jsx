@@ -10,15 +10,13 @@ import {
   AlertCircle,
   TrendingUp,
   FileText,
-  Mail,
-  Calendar,
-  Shield,
-  Eye,
-  Edit,
-  Trash2,
   Search,
   Filter,
-  Download
+  Download,
+  Eye,
+  Trash2,
+  Shield,
+  RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
@@ -38,7 +36,6 @@ const AdminDashboard = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedCompany, setSelectedCompany] = useState(null);
 
   // Check if user is admin
   if (user && user.userType !== 'admin') {
@@ -68,7 +65,7 @@ const AdminDashboard = () => {
 
       console.log('📊 Fetching all admin data...');
 
-      // Fetch all data in parallel using your API service
+      // Fetch all data in parallel
       const [statsResponse, usersResponse, companiesResponse, jobsResponse] = await Promise.all([
         api.get('/admin/stats'),
         api.get('/admin/users?limit=100'),
@@ -76,14 +73,19 @@ const AdminDashboard = () => {
         api.get('/admin/jobs?limit=50')
       ]);
 
-      console.log('✅ All admin data fetched successfully');
+      console.log('✅ All admin data fetched successfully:', {
+        stats: statsResponse.data,
+        users: usersResponse.data,
+        companies: companiesResponse.data,
+        jobs: jobsResponse.data
+      });
 
       setStats(statsResponse.data.stats);
       setUsers(usersResponse.data.users || []);
       setCompanies(companiesResponse.data.companies || []);
       setJobs(jobsResponse.data.jobs || []);
 
-      // Filter pending companies
+      // Filter pending companies from the response
       const pending = companiesResponse.data.companies?.filter(company => 
         company.approvalStatus === 'pending'
       ) || [];
@@ -91,75 +93,22 @@ const AdminDashboard = () => {
 
     } catch (err) {
       console.error('❌ Error fetching admin data:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to load admin data');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load admin data';
+      setError(errorMessage);
+      
+      // Log detailed error info for debugging
+      if (err.response) {
+        console.error('Response status:', err.response.status);
+        console.error('Response data:', err.response.data);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const setDemoData = () => {
-    setStats({
-      totalUsers: 156,
-      totalJobSeekers: 124,
-      totalCompanies: 32,
-      approvedCompanies: 26,
-      pendingCompanies: 6,
-      rejectedCompanies: 0,
-      totalJobs: 47,
-      activeJobs: 42,
-      approvalRate: 81,
-      totalApplications: 189
-    });
-
-    setUsers([
-      {
-        _id: '1',
-        email: 'john@example.com',
-        userType: 'jobseeker',
-        profile: { firstName: 'John', lastName: 'Doe' },
-        createdAt: new Date(),
-        isActive: true
-      },
-      {
-        _id: '2', 
-        email: 'sarah@example.com',
-        userType: 'jobseeker', 
-        profile: { firstName: 'Sarah', lastName: 'Smith' },
-        createdAt: new Date(),
-        isActive: true
-      }
-    ]);
-
-    setCompanies([
-      {
-        _id: '1',
-        email: 'tech@company.com',
-        approvalStatus: 'approved',
-        company: { name: 'Tech Solutions Inc.', industry: 'Technology' },
-        createdAt: new Date()
-      },
-      {
-        _id: '2',
-        email: 'finance@firm.com', 
-        approvalStatus: 'pending',
-        company: { name: 'Finance Partners', industry: 'Finance' },
-        createdAt: new Date()
-      }
-    ]);
-
-    setPendingCompanies([
-      {
-        _id: '2',
-        email: 'finance@firm.com',
-        approvalStatus: 'pending',
-        company: { name: 'Finance Partners', industry: 'Finance' },
-        createdAt: new Date()
-      }
-    ]);
-  };
-
   const handleApproveCompany = async (companyId) => {
     try {
+      console.log(`Approving company: ${companyId}`);
       await api.put(`/admin/companies/${companyId}/approve`);
       
       // Update local state
@@ -172,18 +121,21 @@ const AdminDashboard = () => {
       setPendingCompanies(prev => prev.filter(company => company._id !== companyId));
       
       // Refresh stats
-      fetchAllData();
+      await fetchAllData();
       
       alert('Company approved successfully!');
     } catch (err) {
       console.error('Error approving company:', err);
-      alert('Failed to approve company');
+      alert(err.response?.data?.message || 'Failed to approve company');
     }
   };
 
   const handleRejectCompany = async (companyId) => {
     try {
-      await api.put(`/admin/companies/${companyId}/reject`);
+      console.log(`Rejecting company: ${companyId}`);
+      await api.put(`/admin/companies/${companyId}/reject`, {
+        rejectionReason: 'Rejected by administrator'
+      });
       
       // Update local state
       setCompanies(prev => prev.map(company => 
@@ -195,30 +147,37 @@ const AdminDashboard = () => {
       setPendingCompanies(prev => prev.filter(company => company._id !== companyId));
       
       // Refresh stats
-      fetchAllData();
+      await fetchAllData();
       
       alert('Company rejected successfully!');
     } catch (err) {
       console.error('Error rejecting company:', err);
-      alert('Failed to reject company');
+      alert(err.response?.data?.message || 'Failed to reject company');
     }
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
     
     try {
+      console.log(`Deleting user: ${userId}`);
       await api.delete(`/admin/users/${userId}`);
+      
+      // Update local state
       setUsers(prev => prev.filter(user => user._id !== userId));
-      fetchAllData();
+      setCompanies(prev => prev.filter(company => company._id !== userId));
+      
+      // Refresh stats
+      await fetchAllData();
+      
       alert('User deleted successfully!');
     } catch (err) {
       console.error('Error deleting user:', err);
-      alert('Failed to delete user');
+      alert(err.response?.data?.message || 'Failed to delete user');
     }
   };
 
-  const StatCard = ({ icon: Icon, label, value, color, onClick, trend, description }) => (
+  const StatCard = ({ icon: Icon, label, value, color, onClick, description }) => (
     <div
       className={`stat-card stat-${color} ${onClick ? 'clickable' : ''}`}
       onClick={onClick}
@@ -227,12 +186,6 @@ const AdminDashboard = () => {
         <div className="stat-icon">
           <Icon size={24} />
         </div>
-        {trend && (
-          <div className={`stat-trend ${trend > 0 ? 'positive' : 'negative'}`}>
-            <TrendingUp size={14} />
-            {Math.abs(trend)}%
-          </div>
-        )}
       </div>
       <div className="stat-content">
         <div className="stat-value">{value ?? '0'}</div>
@@ -246,17 +199,25 @@ const AdminDashboard = () => {
   const UserCard = ({ user }) => (
     <div className="user-card">
       <div className="user-avatar">
-        {user.profile?.firstName?.[0]}{user.profile?.lastName?.[0]}
+        {user.profile?.firstName?.[0]}{user.profile?.lastName?.[0] || user.email[0].toUpperCase()}
       </div>
       <div className="user-info">
-        <h4>{user.profile?.firstName} {user.profile?.lastName}</h4>
+        <h4>
+          {user.profile?.firstName && user.profile?.lastName 
+            ? `${user.profile.firstName} ${user.profile.lastName}`
+            : user.email
+          }
+        </h4>
         <p>{user.email}</p>
         <div className="user-meta">
           <span className={`user-type ${user.userType}`}>
             {user.userType}
           </span>
+          <span className={`status-badge ${user.approvalStatus || 'approved'}`}>
+            {user.approvalStatus || 'approved'}
+          </span>
           <span className="user-date">
-            Joined {new Date(user.createdAt).toLocaleDateString()}
+            {new Date(user.createdAt).toLocaleDateString()}
           </span>
         </div>
       </div>
@@ -264,9 +225,11 @@ const AdminDashboard = () => {
         <button className="action-btn view" onClick={() => setSelectedUser(user)}>
           <Eye size={16} />
         </button>
-        <button className="action-btn delete" onClick={() => handleDeleteUser(user._id)}>
-          <Trash2 size={16} />
-        </button>
+        {user._id !== user?._id && ( // Prevent self-deletion
+          <button className="action-btn delete" onClick={() => handleDeleteUser(user._id)}>
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -278,7 +241,7 @@ const AdminDashboard = () => {
           <Building2 size={20} />
         </div>
         <div className="company-info">
-          <h4>{company.company?.name || 'Unnamed Company'}</h4>
+          <h4>{company.company?.name || company.email}</h4>
           <p>{company.email}</p>
           <div className="company-meta">
             <span className="company-industry">
@@ -287,6 +250,9 @@ const AdminDashboard = () => {
             <span className={`status-badge ${company.approvalStatus}`}>
               {company.approvalStatus}
             </span>
+            {company.stats?.totalJobs !== undefined && (
+              <span className="job-count">{company.stats.totalJobs} jobs</span>
+            )}
           </div>
         </div>
       </div>
@@ -315,12 +281,20 @@ const AdminDashboard = () => {
   const filteredUsers = users.filter(user =>
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.profile?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.profile?.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
+    user.profile?.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.userType?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredCompanies = companies.filter(company =>
     company.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    company.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    company.company?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    company.company?.industry?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredJobs = jobs.filter(job =>
+    job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    job.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    job.location?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -345,7 +319,7 @@ const AdminDashboard = () => {
         </div>
         <div className="header-actions">
           <button className="btn-refresh" onClick={fetchAllData}>
-            <Refresh size={16} />
+            <RefreshCw size={16} />
             Refresh Data
           </button>
           <button className="btn-export">
@@ -406,23 +380,25 @@ const AdminDashboard = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="search-section">
-        <div className="search-bar">
-          <Search size={18} />
-          <input
-            type="text"
-            placeholder="Search users, companies, jobs..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      {(activeTab === 'users' || activeTab === 'companies' || activeTab === 'jobs') && (
+        <div className="search-section">
+          <div className="search-bar">
+            <Search size={18} />
+            <input
+              type="text"
+              placeholder={`Search ${activeTab}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="filter-actions">
+            <button className="filter-btn">
+              <Filter size={16} />
+              Filters
+            </button>
+          </div>
         </div>
-        <div className="filter-actions">
-          <button className="filter-btn">
-            <Filter size={16} />
-            Filters
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Tab Content */}
       <div className="admin-content">
@@ -438,7 +414,6 @@ const AdminDashboard = () => {
                   value={stats.totalUsers}
                   color="blue"
                   onClick={() => setActiveTab('users')}
-                  trend={12}
                   description="Active platform users"
                 />
                 <StatCard
@@ -447,7 +422,6 @@ const AdminDashboard = () => {
                   value={stats.totalCompanies}
                   color="purple"
                   onClick={() => setActiveTab('companies')}
-                  trend={8}
                   description="Registered businesses"
                 />
                 <StatCard
@@ -456,15 +430,13 @@ const AdminDashboard = () => {
                   value={stats.totalJobs}
                   color="green"
                   onClick={() => setActiveTab('jobs')}
-                  trend={15}
                   description="Job listings"
                 />
                 <StatCard
                   icon={FileText}
                   label="Applications"
-                  value={stats.totalApplications || 189}
+                  value={stats.totalApplications}
                   color="orange"
-                  trend={22}
                   description="Total applications"
                 />
                 <StatCard
@@ -526,17 +498,22 @@ const AdminDashboard = () => {
 
             {/* Recent Activity */}
             <div className="activity-section">
-              <h3>Recent Activity</h3>
+              <h3>Recent Users</h3>
               <div className="activity-list">
                 {users.slice(0, 5).map(user => (
                   <div key={user._id} className="activity-item">
                     <div className="activity-avatar">
-                      {user.profile?.firstName?.[0]}
+                      {user.profile?.firstName?.[0] || user.email[0].toUpperCase()}
                     </div>
                     <div className="activity-content">
                       <p>
-                        <strong>{user.profile?.firstName} {user.profile?.lastName}</strong>
-                        {' '}joined the platform
+                        <strong>
+                          {user.profile?.firstName && user.profile?.lastName 
+                            ? `${user.profile.firstName} ${user.profile.lastName}`
+                            : user.email
+                          }
+                        </strong>
+                        {' '}joined as {user.userType}
                       </p>
                       <span className="activity-time">
                         {new Date(user.createdAt).toLocaleDateString()}
@@ -610,9 +587,9 @@ const AdminDashboard = () => {
 
         {activeTab === 'jobs' && (
           <div className="jobs-section">
-            <h2>Job Management ({jobs.length})</h2>
+            <h2>Job Management ({filteredJobs.length})</h2>
             <div className="jobs-grid">
-              {jobs.slice(0, 10).map(job => (
+              {filteredJobs.map(job => (
                 <div key={job._id} className="job-card">
                   <div className="job-header">
                     <h4>{job.title}</h4>
@@ -620,10 +597,15 @@ const AdminDashboard = () => {
                       {job.status}
                     </span>
                   </div>
-                  <p className="job-company">{job.companyName}</p>
+                  <p className="job-company">
+                    {job.company?.name || job.companyName || 'Unknown Company'}
+                  </p>
                   <p className="job-location">{job.location}</p>
                   <div className="job-meta">
                     <span className="job-type">{job.jobType}</span>
+                    <span className="job-applications">
+                      {job.applicationCount || 0} applications
+                    </span>
                     <span className="job-date">
                       {new Date(job.createdAt).toLocaleDateString()}
                     </span>
@@ -631,6 +613,13 @@ const AdminDashboard = () => {
                 </div>
               ))}
             </div>
+            {filteredJobs.length === 0 && (
+              <div className="empty-state">
+                <Briefcase size={48} />
+                <h3>No Jobs Found</h3>
+                <p>No jobs match your search criteria</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -646,14 +635,25 @@ const AdminDashboard = () => {
             <div className="modal-body">
               <div className="user-detail">
                 <div className="detail-avatar">
-                  {selectedUser.profile?.firstName?.[0]}{selectedUser.profile?.lastName?.[0]}
+                  {selectedUser.profile?.firstName?.[0]}{selectedUser.profile?.lastName?.[0] || selectedUser.email[0].toUpperCase()}
                 </div>
                 <div className="detail-info">
-                  <h4>{selectedUser.profile?.firstName} {selectedUser.profile?.lastName}</h4>
+                  <h4>
+                    {selectedUser.profile?.firstName && selectedUser.profile?.lastName 
+                      ? `${selectedUser.profile.firstName} ${selectedUser.profile.lastName}`
+                      : selectedUser.email
+                    }
+                  </h4>
                   <p>{selectedUser.email}</p>
                   <div className="detail-meta">
-                    <span className="user-type">{selectedUser.userType}</span>
+                    <span className={`user-type ${selectedUser.userType}`}>
+                      {selectedUser.userType}
+                    </span>
+                    <span className={`status-badge ${selectedUser.approvalStatus || 'approved'}`}>
+                      {selectedUser.approvalStatus || 'approved'}
+                    </span>
                     <span>Joined: {new Date(selectedUser.createdAt).toLocaleDateString()}</span>
+                    <span>Active: {selectedUser.isActive !== false ? 'Yes' : 'No'}</span>
                   </div>
                 </div>
               </div>
@@ -664,15 +664,5 @@ const AdminDashboard = () => {
     </div>
   );
 };
-
-// Add missing Refresh component
-const Refresh = ({ size }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M23 4v6h-6" />
-    <path d="M1 20v-6h6" />
-    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" />
-    <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" />
-  </svg>
-);
 
 export default AdminDashboard;
