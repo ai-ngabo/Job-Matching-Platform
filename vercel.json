@@ -1,5 +1,8 @@
 {
-  "buildCommand": "cd frontend-system && npm install && npm run build",
+  "buildCommand": "cd frontend-system && npm ci && npm run build",
   "outputDirectory": "frontend-system/dist",
-  "framework": "vite"
+  "framework": "vite",
+  "env": {
+    "CI": "true"
+  }
 }
