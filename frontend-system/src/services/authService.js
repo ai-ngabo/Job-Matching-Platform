@@ -7,7 +7,7 @@ export const authService = {
       console.log('🔐 Attempting login...');
       
       // Use full path including /api
-      const response = await api.post('/api/auth/login', credentials);
+      const response = await api.post('auth/login', credentials);
       
       console.log('✅ Login response received');
       
@@ -67,7 +67,7 @@ export const authService = {
         throw new Error('No token found');
       }
       
-      const response = await api.get('/api/auth/verify');
+      const response = await api.get('auth/verify');
       return response.data;
     } catch (error) {
       console.error('❌ Token verification failed:', error);
