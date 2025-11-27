@@ -28,7 +28,7 @@ export const authService = {
 
   async register(userData) {
     try {
-      const response = await api.post('/api/auth/register', userData);
+      const response = await api.post('auth/register', userData);
       
       if (response.data.token && response.data.user) {
         localStorage.setItem('authToken', response.data.token);
