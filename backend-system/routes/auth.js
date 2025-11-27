@@ -350,7 +350,7 @@ router.post('/google-login', async (req, res) => {
           profile: {
             firstName,
             lastName,
-            avatar: profilePicture ? { url: profilePicture } : null
+            avatar: profilePicture || null
           },
           // Generate a random password since Google users don't set one
           password: crypto.randomBytes(32).toString('hex')
