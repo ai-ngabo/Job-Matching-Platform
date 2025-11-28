@@ -420,10 +420,6 @@ const AdminDashboard = () => {
             <RefreshCw size={16} />
             Refresh
           </button>
-          <button className="btn-logout" onClick={() => { logout(); navigate('/login'); }}>
-            <LogOut size={16} />
-            Logout
-          </button>
         </div>
       </div>
 
