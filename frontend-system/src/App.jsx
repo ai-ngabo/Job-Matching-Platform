@@ -30,9 +30,9 @@ const BackendStatus = () => {
         console.log('🔍 Checking backend health...');
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
                             process.env.REACT_APP_API_URL || 
-                            'https://job-matching-platform-zvzw.onrender.com';
+                            'https://job-matching-platform-zvzw.onrender.com/api';
         
-        const response = await fetch(`${API_BASE_URL}/api/health`);
+        const response = await fetch(`${API_BASE_URL}/health`);
         const data = await response.json();
         
         console.log('🏥 Backend health:', data);
