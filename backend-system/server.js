@@ -1,4 +1,5 @@
 // Load environment variables FIRST before any other imports
+// v2: Admin routes integration
 import dotenv from 'dotenv';
 dotenv.config();
 
