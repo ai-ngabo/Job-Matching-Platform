@@ -87,9 +87,9 @@ const UserCard = ({ user: userData, onView, onDelete }) => (
   </div>
 );
 
-const CompanyCard = ({ company, showActions = false, onApprove, onReject }) => (
+const CompanyCard = ({ company, showActions = false, onView, onApprove, onReject }) => (
   <div className={`company-card status-${company.approvalStatus}`}>
-    <div className="company-header">
+    <div className="company-header" onClick={() => onView?.(company)} style={{ cursor: onView ? 'pointer' : 'default' }}>
       <div className="company-avatar">
         <Building2 size={20} />
       </div>
@@ -149,6 +149,78 @@ const UserDetailModal = ({ user, onClose }) => (
   </div>
 );
 
+const CompanyDetailModal = ({ company, onClose }) => (
+  <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-header">
+        <h3>Company Details</h3>
+        <button onClick={onClose}>×</button>
+      </div>
+      <div className="modal-body">
+        <div className="company-detail">
+          <div className="detail-header">
+            <div className="detail-avatar">
+              <Building2 size={32} />
+            </div>
+            <div className="detail-info">
+              <h4>{company.company?.name || company.email}</h4>
+              <p>{company.email}</p>
+              <span className={`status-badge ${company.approvalStatus}`}>
+                {company.approvalStatus}
+              </span>
+            </div>
+          </div>
+
+          <div className="detail-section">
+            <h5>Company Information</h5>
+            <div className="detail-grid">
+              <div className="detail-item">
+                <label>Industry</label>
+                <p>{company.company?.industry || 'Not specified'}</p>
+              </div>
+              <div className="detail-item">
+                <label>Website</label>
+                <p>{company.company?.website || 'Not provided'}</p>
+              </div>
+              <div className="detail-item">
+                <label>Location</label>
+                <p>{company.company?.location || 'Not specified'}</p>
+              </div>
+              <div className="detail-item">
+                <label>Size</label>
+                <p>{company.company?.size || 'Not specified'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="detail-section">
+            <h5>Description</h5>
+            <p className="description-text">{company.company?.description || 'No description provided'}</p>
+          </div>
+
+          <div className="detail-section">
+            <h5>Statistics</h5>
+            <div className="detail-grid">
+              <div className="detail-item">
+                <label>Total Jobs</label>
+                <p>{company.stats?.totalJobs || 0}</p>
+              </div>
+              <div className="detail-item">
+                <label>Total Applications</label>
+                <p>{company.stats?.totalApplications || 0}</p>
+              </div>
+              <div className="detail-item">
+                <label>Joined</label>
+                <p>{new Date(company.createdAt).toLocaleDateString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 // ==================== MAIN COMPONENT ====================
 
 const AdminDashboard = () => {
@@ -164,6 +236,7 @@ const AdminDashboard = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(null);
 
   // Debug and check authentication
   useEffect(() => {
@@ -481,7 +554,7 @@ const AdminDashboard = () => {
             <h2>Company Management ({filteredCompanies.length})</h2>
             <div className="companies-grid">
               {filteredCompanies.map(company => (
-                <CompanyCard key={company._id} company={company} />
+                <CompanyCard key={company._id} company={company} onView={setSelectedCompany} />
               ))}
             </div>
             {filteredCompanies.length === 0 && (
@@ -551,6 +624,9 @@ const AdminDashboard = () => {
       {/* Modal */}
       {selectedUser && (
         <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+      )}
+      {selectedCompany && (
+        <CompanyDetailModal company={selectedCompany} onClose={() => setSelectedCompany(null)} />
       )}
     </div>
   );
