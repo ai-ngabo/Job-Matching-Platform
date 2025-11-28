@@ -18,6 +18,16 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     minify: 'terser',
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor': ['react', 'react-dom', 'react-router-dom'],
+          'icons': ['lucide-react'],
+          'ui': ['axios']
+        }
+      }
+    },
     terserOptions: {
       compress: {
         drop_console: true
