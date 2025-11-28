@@ -174,6 +174,47 @@ router.get('/companies', async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/companies/:id
+// @desc    Get company details by ID
+router.get('/companies/:id', async (req, res) => {
+  try {
+    const company = await User.findById(req.params.id)
+      .select('-password')
+      .lean();
+
+    if (!company || company.userType !== 'company') {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Get company jobs and applications
+    const jobs = await Job.find({ company: company._id })
+      .select('title status salary createdAt')
+      .lean();
+
+    const jobIds = jobs.map(job => job._id);
+    const applicationCount = await Application.countDocuments({ job: { $in: jobIds } });
+
+    res.json({
+      message: 'Company details retrieved successfully',
+      company: {
+        ...company,
+        stats: {
+          totalJobs: jobs.length,
+          totalApplications: applicationCount,
+          recentJobs: jobs.slice(0, 5)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get company details error:', error);
+    res.status(500).json({
+      message: 'Error fetching company details',
+      error: error.message
+    });
+  }
+});
+
 // @route   GET /api/admin/jobs
 // @desc    Get all jobs
 router.get('/jobs', async (req, res) => {
@@ -260,6 +301,7 @@ router.get('/debug', (req, res) => {
       '/stats',
       '/users', 
       '/companies',
+      '/companies/:id',
       '/jobs',
       '/applications',
       '/companies/:id/approve',
