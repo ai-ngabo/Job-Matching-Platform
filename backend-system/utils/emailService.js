@@ -18,6 +18,13 @@ const initializeEmailService = () => {
     const smtpPort = Number(process.env.SMTP_PORT || 587);
     const isSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
     
+    console.log('📧 Initializing Email Service...');
+    console.log(`   Host: ${process.env.SMTP_HOST}`);
+    console.log(`   Port: ${smtpPort}`);
+    console.log(`   User: ${process.env.SMTP_USER}`);
+    console.log(`   Secure (TLS): ${isSecure}`);
+    console.log(`   From: ${getFromAddress()}`);
+    
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: smtpPort,
@@ -40,17 +47,21 @@ const initializeEmailService = () => {
     setImmediate(() => {
       transporter.verify()
         .then(() => {
-          console.log('✅ Email service verified');
+          console.log('✅ Email service verified and ready!');
         })
-        .catch(() => {
-          // Silently ignore verification errors - don't log anything
-          // Email will attempt to send when needed
+        .catch((err) => {
+          console.error('⚠️  Email service verification warning:', err.message);
+          console.error('   Note: Email may still work despite verification failure');
+          // Silently continue - email will attempt to send when needed
         });
     });
 
-    console.log(`📧 Email service initialized for ${process.env.SMTP_HOST}:${smtpPort}`);
+    console.log(`✅ Email transporter created for ${process.env.SMTP_HOST}:${smtpPort}`);
   } else {
-    console.log('ℹ️  Email service disabled (SMTP not configured)');
+    console.warn('❌ Email service NOT configured - missing environment variables:');
+    if (!process.env.SMTP_HOST) console.warn('   - SMTP_HOST');
+    if (!process.env.SMTP_USER) console.warn('   - SMTP_USER');
+    if (!process.env.SMTP_PASS) console.warn('   - SMTP_PASS');
   }
 
   isInitialized = true;
@@ -67,6 +78,10 @@ const sendEmail = async ({ to, subject, html }) => {
   
   if (!transporter) {
     console.warn(`📭 Email skipped (transporter unavailable). Intended recipient: ${to}`);
+    console.warn(`📭 Email Configuration Status:`);
+    console.warn(`   - SMTP_HOST: ${process.env.SMTP_HOST ? '✅' : '❌'}`);
+    console.warn(`   - SMTP_USER: ${process.env.SMTP_USER ? '✅' : '❌'}`);
+    console.warn(`   - SMTP_PASS: ${process.env.SMTP_PASS ? '✅ (hidden)' : '❌'}`);
     return;
   }
 
@@ -78,10 +93,17 @@ const sendEmail = async ({ to, subject, html }) => {
       html
     });
     
-    console.log(`✅ Email sent successfully to ${to} (Message ID: ${info.messageId})`);
+    console.log(`✅ Email sent successfully to ${to}`);
+    console.log(`   📧 Subject: ${subject}`);
+    console.log(`   🔑 Message ID: ${info.messageId}`);
+    console.log(`   📬 Response: ${info.response}`);
     return info;
   } catch (error) {
-    console.error(`❌ Failed to send email to ${to}:`, error.message);
+    console.error(`❌ Failed to send email to ${to}`);
+    console.error(`   📧 Subject: ${subject}`);
+    console.error(`   ⚠️  Error Code: ${error.code}`);
+    console.error(`   ⚠️  Error Message: ${error.message}`);
+    console.error(`   ⚠️  Full Error:`, error);
     // Don't throw - allow the application to continue even if email fails
     throw error;
   }
