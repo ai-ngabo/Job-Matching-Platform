@@ -39,6 +39,31 @@ router.post('/message', async (req, res) => {
       });
     }
 
+    if (lowerMessage.includes('internship') || lowerMessage.includes('intern')) {
+      const internships = recentJobs.filter(job =>
+        job.title?.toLowerCase().includes('intern') ||
+        job.jobType?.toLowerCase().includes('intern') ||
+        job.experienceLevel?.toLowerCase().includes('entry') ||
+        job.experienceLevel?.toLowerCase().includes('fresh')
+      );
+
+      const jobsToShow = internships.length > 0 ? internships.slice(0, 4) : recentJobs.filter(j => 
+        j.experienceLevel?.toLowerCase().includes('entry') || 
+        j.experienceLevel?.toLowerCase().includes('junior')
+      ).slice(0, 4);
+
+      return res.json({
+        message: `🎓 **Internship Opportunities on JobIFY**\n\n${jobsToShow.length > 0 ? 
+          `We have ${jobsToShow.length} internship positions:\n\n${jobsToShow.map((job, i) => 
+            `**${i+1}. ${job.title}**\n   🏢 ${job.companyName || job.company?.company?.name}\n   📍 ${job.location}\n   💼 ${job.jobType}\n   📚 ${job.experienceLevel || 'Entry Level'}\n   ${job.salaryRange?.min ? `💰 $${job.salaryRange.min} - $${job.salaryRange.max}` : '💵 Varies by company'}`
+          ).join('\n\n')}` : 
+          'Check back soon for more internship positions! Many companies offer great learning opportunities.'
+        }\n\n💡 *Internships are perfect for gaining experience and building your career!*`,
+        jobs: jobsToShow,
+        type: 'internships'
+      });
+    }
+
     if (lowerMessage.includes('job') || lowerMessage.includes('work') || lowerMessage.includes('position') || lowerMessage.includes('opportunity')) {
       let filteredJobs = recentJobs;
       let filterMessage = '';
@@ -68,6 +93,53 @@ router.post('/message', async (req, res) => {
           job.experienceLevel?.toLowerCase().includes('experienced')
         );
         filterMessage = '🎯 **Senior Roles**\n\n';
+      }
+
+      if (lowerMessage.includes('entry') || lowerMessage.includes('junior') || lowerMessage.includes('beginner') || lowerMessage.includes('graduate')) {
+        filteredJobs = recentJobs.filter(job =>
+          job.experienceLevel?.toLowerCase().includes('entry') ||
+          job.experienceLevel?.toLowerCase().includes('junior') ||
+          job.experienceLevel?.toLowerCase().includes('fresh') ||
+          job.experienceLevel?.toLowerCase().includes('graduate')
+        );
+        filterMessage = '🚀 **Entry-Level & Junior Positions**\n\n';
+      }
+
+      if (lowerMessage.includes('design') || lowerMessage.includes('ux') || lowerMessage.includes('ui')) {
+        filteredJobs = recentJobs.filter(job =>
+          job.title?.toLowerCase().includes('design') ||
+          job.title?.toLowerCase().includes('ux') ||
+          job.title?.toLowerCase().includes('ui') ||
+          job.title?.toLowerCase().includes('graphic')
+        );
+        filterMessage = '🎨 **Design & UX/UI Positions**\n\n';
+      }
+
+      if (lowerMessage.includes('marketing') || lowerMessage.includes('sales')) {
+        filteredJobs = recentJobs.filter(job =>
+          job.title?.toLowerCase().includes('market') ||
+          job.title?.toLowerCase().includes('sales') ||
+          job.title?.toLowerCase().includes('business')
+        );
+        filterMessage = '📈 **Marketing & Sales Opportunities**\n\n';
+      }
+
+      if (lowerMessage.includes('finance') || lowerMessage.includes('accounting') || lowerMessage.includes('accountant')) {
+        filteredJobs = recentJobs.filter(job =>
+          job.title?.toLowerCase().includes('finance') ||
+          job.title?.toLowerCase().includes('account') ||
+          job.title?.toLowerCase().includes('analyst')
+        );
+        filterMessage = '💼 **Finance & Accounting Roles**\n\n';
+      }
+
+      if (lowerMessage.includes('medical') || lowerMessage.includes('healthcare') || lowerMessage.includes('nurse')) {
+        filteredJobs = recentJobs.filter(job =>
+          job.title?.toLowerCase().includes('medical') ||
+          job.title?.toLowerCase().includes('health') ||
+          job.title?.toLowerCase().includes('nurse')
+        );
+        filterMessage = '🏥 **Healthcare & Medical Positions**\n\n';
       }
 
       const jobsToShow = filteredJobs.length > 0 ? filteredJobs.slice(0, 4) : recentJobs.slice(0, 4);
