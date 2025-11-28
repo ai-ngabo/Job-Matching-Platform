@@ -170,10 +170,12 @@ const AdminDashboard = () => {
     console.log('🔍 Admin Dashboard - User:', user?.userType);
   }, [user]);
 
-  // Fetch data on mount
+  // Fetch data when user is loaded and is admin
   useEffect(() => {
-    fetchAllData();
-  }, []);
+    if (user && user.userType === 'admin') {
+      fetchAllData();
+    }
+  }, [user?.userType]);
 
   // Redirect if not admin
   if (user && user.userType !== 'admin') {
@@ -200,15 +202,11 @@ const AdminDashboard = () => {
       const token = authService.getToken();
       if (!token) {
         setError('No authentication token found. Please log in again.');
+        setLoading(false);
         return;
       }
 
-      if (!user || user.userType !== 'admin') {
-        setError('Admin privileges required.');
-        return;
-      }
-
-      console.log('📊 Fetching admin data...');
+      console.log('📊 Fetching admin data with token...');
 
       const [statsResponse, usersResponse, companiesResponse, jobsResponse] = await Promise.all([
         api.get('/admin/stats'),
@@ -231,12 +229,16 @@ const AdminDashboard = () => {
 
     } catch (err) {
       console.error('❌ Error fetching data:', err);
+      console.error('Response status:', err.response?.status);
+      console.error('Response data:', err.response?.data);
       
       if (err.response?.status === 401) {
         setError('Authentication failed. Please log in again.');
         logout();
       } else if (err.response?.status === 403) {
         setError('Access denied. Admin privileges required.');
+      } else if (err.response?.status === 404) {
+        setError('Admin endpoints not found. Backend may not be deployed.');
       } else {
         const errorMessage = err.response?.data?.message || err.message || 'Failed to load data';
         setError(errorMessage);
