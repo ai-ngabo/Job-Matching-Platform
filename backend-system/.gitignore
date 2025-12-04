@@ -1,0 +1,13 @@
+# Node / Vite
+node_modules/
+.vite/
+dist/
+
+# Environment
+.env
+.env.local
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.log
