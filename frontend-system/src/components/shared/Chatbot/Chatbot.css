@@ -34,9 +34,9 @@
   bottom: 24px;
   right: 24px;
   width: 100%;
-  max-width: 420px;
-  max-height: 90vh;
-  height: 600px;
+  max-width: 380px;
+  max-height: 80vh;
+  height: 480px;
   background: white;
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -499,8 +499,8 @@
   .chatbot-container {
     width: calc(100% - 32px);
     max-width: none;
-    height: calc(100vh - 100px);
-    max-height: calc(100vh - 100px);
+    height: calc(100vh - 120px);
+    max-height: 75vh;
     bottom: 16px;
     right: 16px;
     border-radius: 12px;
@@ -523,7 +523,8 @@
 @media (max-width: 480px) {
   .chatbot-container {
     width: calc(100% - 16px);
-    height: calc(100vh - 80px);
+    height: calc(100vh - 100px);
+    max-height: 70vh;
     bottom: 8px;
     right: 8px;
   }
