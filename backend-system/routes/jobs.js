@@ -1,6 +1,7 @@
 import express from 'express';
 import Job from '../models/Job.js';
 import auth from '../middleware/auth.js';
+import User from '../models/User.js';
 
 const router = express.Router();
 
@@ -108,6 +109,129 @@ router.get('/', async (req, res) => {
   }
 });
 
+// @route   GET /api/jobs/company/my-jobs
+// @desc    Get jobs posted by current company
+// @access  Private (Company only)
+router.get('/company/my-jobs', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'company') {
+      return res.status(403).json({ message: 'Only companies can access this endpoint' });
+    }
+
+    const jobs = await Job.find({ company: req.user.id })
+      .sort({ createdAt: -1 })
+      .select('-requirements -description');
+
+    res.json({ message: 'Company jobs retrieved successfully', jobs, count: jobs.length });
+  } catch (error) {
+    console.error('Get company jobs error:', error);
+    res.status(500).json({ message: 'Server error retrieving company jobs', error: error.message });
+  }
+});
+
+// @route   GET /api/jobs/saved
+// @desc    Get saved jobs for job seeker
+// @access  Private (Job Seeker only)
+router.get('/saved', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({ message: 'Only job seekers can access saved jobs' });
+    }
+
+    const user = await User.findById(req.user.id).populate({
+      path: 'savedJobs',
+      match: { status: 'active' },
+      select: 'title companyName location jobType category createdAt'
+    });
+    
+    res.json({
+      message: 'Saved jobs retrieved successfully',
+      savedJobs: user.savedJobs || []
+    });
+  } catch (error) {
+    console.error('Get saved jobs error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving saved jobs',
+      error: error.message
+    });
+  }
+});
+
+
+// @route   GET /api/jobs/recommended
+// @desc    Get recommended jobs for job seeker
+// @access  Private (Job Seeker only)
+router.get('/recommended', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only job seekers can access recommended jobs'
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+    const userProfile = user.profile || {};
+    const userSkills = userProfile.skills || [];
+    
+    // Get active jobs - simplified query
+    const jobs = await Job.find({
+      status: 'active',
+      applicationDeadline: { $gte: new Date() }
+    })
+      .populate('company', 'name description industry logo')
+      .limit(parseInt(req.query.limit) || 6)
+      .sort({ createdAt: -1 });
+
+    // Calculate simple match score for each job
+    const jobsWithScore = jobs.map(job => {
+      const jobSkills = job.skillsRequired || [];
+      
+      // Calculate match percentage based on skills
+      let matchScore = 0;
+      if (jobSkills.length > 0 && userSkills.length > 0) {
+        // Count matching skills
+        const matchedSkills = userSkills.filter(skill => 
+          jobSkills.some(jobSkill => 
+            jobSkill.toLowerCase().includes(skill.toLowerCase()) ||
+            skill.toLowerCase().includes(jobSkill.toLowerCase())
+          )
+        );
+        matchScore = Math.round((matchedSkills.length / jobSkills.length) * 100);
+      } else {
+        // If no skills specified, use a base score
+        matchScore = Math.floor(Math.random() * 30) + 50; // 50-80% random score
+      }
+      
+      // Cap at 100%
+      matchScore = Math.min(100, matchScore);
+      
+      return {
+        ...job.toObject(),
+        matchScore: matchScore
+      };
+    });
+
+    // Sort by match score (highest first)
+    jobsWithScore.sort((a, b) => b.matchScore - a.matchScore);
+
+    res.json({
+      success: true,
+      data: jobsWithScore,
+      count: jobsWithScore.length
+    });
+
+  } catch (error) {
+    console.error('❌ Get recommended jobs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting recommended jobs',
+      error: error.message,
+      stack: error.stack // Add stack trace for debugging
+    });
+  }
+});
+
 // @route   GET /api/jobs/:id
 // @desc    Get single job details
 // @access  Public
@@ -127,26 +251,6 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('Get job details error:', error);
     res.status(500).json({ message: 'Server error retrieving job details', error: error.message });
-  }
-});
-
-// @route   GET /api/jobs/company/my-jobs
-// @desc    Get jobs posted by current company
-// @access  Private (Company only)
-router.get('/company/my-jobs', auth, async (req, res) => {
-  try {
-    if (req.user.userType !== 'company') {
-      return res.status(403).json({ message: 'Only companies can access this endpoint' });
-    }
-
-    const jobs = await Job.find({ company: req.user.id })
-      .sort({ createdAt: -1 })
-      .select('-requirements -description');
-
-    res.json({ message: 'Company jobs retrieved successfully', jobs, count: jobs.length });
-  } catch (error) {
-    console.error('Get company jobs error:', error);
-    res.status(500).json({ message: 'Server error retrieving company jobs', error: error.message });
   }
 });
 

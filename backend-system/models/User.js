@@ -42,6 +42,40 @@ const userSchema = new mongoose.Schema({
       enum: ['high-school', 'diploma', 'bachelors', 'masters', 'phd'],
       default: 'high-school'
     },
+    // ADD THESE NEW FIELDS:
+    views: { type: Number, default: 0 },
+    lastViewed: { type: Date, default: null },
+    experience: [
+      {
+        title: String,
+        company: String,
+        location: String,
+        startDate: Date,
+        endDate: Date,
+        current: { type: Boolean, default: false },
+        description: String
+      }
+    ],
+    education: [
+      {
+        institution: String,
+        degree: String,
+        field: String,
+        startYear: Number,
+        endYear: Number,
+        description: String
+      }
+    ],
+    certifications: [
+      {
+        name: String,
+        issuer: String,
+        issueDate: Date,
+        expiryDate: Date,
+        credentialId: String
+      }
+    ],
+    // Documents remain the same
     documents: {
       cv: {
         filename: { type: String, default: '' },
@@ -88,6 +122,12 @@ const userSchema = new mongoose.Schema({
       }
     }
   },
+  
+  // ADD THIS FIELD FOR SAVED JOBS:
+  savedJobs: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Job'
+  }],
   
   approvalStatus: {
     type: String,

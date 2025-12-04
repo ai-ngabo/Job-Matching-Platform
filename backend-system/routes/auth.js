@@ -49,13 +49,16 @@ router.post('/register', async (req, res) => {
       companyContactPhone,
       companyContactEmail
     } = req.body;
-    
-    console.log('📝 Registration attempt:', { email, userType });
-    
-    // Basic validation
-    if (!email || !password || !userType) {
+
+    // Allow minimal signup: default to jobseeker when userType not provided
+    const resolvedUserType = userType || 'jobseeker';
+
+    console.log('📝 Registration attempt:', { email, userType: resolvedUserType });
+
+    // Basic validation: require email and password only
+    if (!email || !password) {
       return res.status(400).json({ 
-        message: 'Email, password and userType are required' 
+        message: 'Email and password are required' 
       });
     }
 
@@ -67,11 +70,11 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create user data
+    // Create user data (use resolved userType)
     const userData = {
       email,
       password,
-      userType
+      userType: resolvedUserType
     };
 
     if (userType === 'jobseeker') {
@@ -125,7 +128,11 @@ router.post('/register', async (req, res) => {
     ]);
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = jwt.sign(
+      { userId: user._id }, 
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
     res.status(201).json({
       message: user.userType === 'jobseeker' 
@@ -159,43 +166,42 @@ router.post('/login', async (req, res) => {
     hasPassword: !!req.body.password,
     ip: req.ip || req.connection.remoteAddress
   });
-  
+
   try {
     const { email, password } = req.body;
-    
+
     console.log('🔍 Looking for user:', email);
-    
+
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
       console.log('❌ User not found:', email);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    
+
     console.log('✅ User found:', {
       id: user._id,
       userType: user.userType,
       email: user.email
     });
-    
+
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     console.log('🔑 Password match:', isMatch);
-    
+
     if (!isMatch) {
-      console.log('❌ Invalid password for user:', email);
+      console.log('❌ Invalid password for user:', email);       
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    
-    // Generate token
+
     const token = jwt.sign(
-      { id: user._id }, 
-      process.env.JWT_SECRET, 
+      { userId: user._id }, 
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-    
+
     console.log('✅ Login successful for:', email);
-    
+
     res.json({
       token,
       user: {
@@ -206,7 +212,7 @@ router.post('/login', async (req, res) => {
         company: user.company
       }
     });
-    
+
   } catch (error) {
     console.error('❌ Backend login error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -422,6 +428,168 @@ router.post('/google-login', async (req, res) => {
     console.error('❌ Google login error:', error);
     res.status(500).json({
       message: 'Server error during Google authentication',
+      error: error.message
+    });
+  }
+});
+
+// @route   POST /api/auth/google-register
+// @desc    Register user with Google OAuth token and userType
+// @access  Public
+router.post('/google-register', async (req, res) => {
+  try {
+    const { token, userType = 'jobseeker' } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        message: 'Google token is required'
+      });
+    }
+
+    // Validate userType
+    if (!['jobseeker', 'company'].includes(userType)) {
+      return res.status(400).json({
+        message: 'Invalid user type. Must be jobseeker or company'
+      });
+    }
+
+    // Check if Google Client ID is configured
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    if (!googleClientId) {
+      console.error('❌ GOOGLE_CLIENT_ID environment variable is not set');
+      return res.status(500).json({
+        message: 'Google authentication is not configured. Please contact support.',
+        error: 'GOOGLE_CLIENT_ID missing'
+      });
+    }
+
+    console.log('🔐 Attempting Google OAuth registration...', { userType });
+
+    // Initialize Google OAuth client
+    const client = new OAuth2Client(googleClientId);
+
+    try {
+      // Verify the token with Google
+      console.log('🔍 Verifying Google token for registration...');
+      const ticket = await client.verifyIdToken({
+        idToken: token
+      });
+
+      const payload = ticket.getPayload();
+      const googleId = payload.sub;
+      const email = payload.email;
+      const firstName = payload.given_name || '';
+      const lastName = payload.family_name || '';
+      const profilePicture = payload.picture;
+
+      console.log('✅ Google OAuth verified for registration:', email);
+
+      // Check if user already exists
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({
+          message: 'User already exists with this email. Please log in instead.'
+        });
+      }
+
+      // Create new user from Google data with specified userType
+      const userData = {
+        email,
+        googleId,
+        userType: userType,
+        // Generate a random password since Google users don't set one
+        password: crypto.randomBytes(32).toString('hex')
+      };
+
+      // Set up profile or company data based on userType
+      if (userType === 'jobseeker') {
+        userData.profile = {
+          firstName,
+          lastName,
+          avatar: profilePicture || null
+        };
+        // Job seekers are auto-approved
+        userData.approvalStatus = 'approved';
+      } else if (userType === 'company') {
+        userData.company = {
+          name: `${firstName} ${lastName}`.trim() || 'My Company',
+          contact: {
+            personName: `${firstName} ${lastName}`.trim(),
+            email: email
+          }
+        };
+        // Companies need approval
+        userData.approvalStatus = 'pending';
+      }
+
+      const user = new User(userData);
+      await user.save();
+
+      console.log('📝 New user registered via Google OAuth:', { email, userType });
+
+      // Send welcome email
+      try {
+        await sendRegistrationEmail({
+          email,
+          firstName: userType === 'jobseeker' ? firstName : '',
+          userType: userType,
+          companyName: userType === 'company' ? user.company.name : null
+        });
+
+        // Send admin alert for company registrations
+        if (userType === 'company') {
+          await sendAdminRegistrationAlert({
+            email: user.email,
+            userType: user.userType,
+            companyName: user.company.name
+          });
+        }
+      } catch (emailErr) {
+        console.warn('⚠️ Could not send welcome email:', emailErr.message);
+      }
+
+      // Generate JWT token
+      const authToken = generateToken(user._id);
+
+      console.log('✅ Google registration successful:', { email, userType });
+
+      res.status(201).json({
+        message: userType === 'jobseeker' 
+          ? 'Job seeker account created successfully with Google!'
+          : 'Company account created with Google! Pending approval.',
+        token: authToken,
+        user: {
+          id: user._id,
+          email: user.email,
+          userType: user.userType,
+          profile: user.profile,
+          company: user.company,
+          approvalStatus: user.approvalStatus
+        }
+      });
+
+    } catch (verifyError) {
+      console.error('❌ Google token verification failed:', verifyError.message);
+      
+      let errorMessage = 'Invalid Google token. Please try again.';
+      if (verifyError.message.includes('audience')) {
+        errorMessage = 'Token audience mismatch. Please check Google Client ID configuration.';
+      } else if (verifyError.message.includes('expired')) {
+        errorMessage = 'Google token has expired. Please try signing in again.';
+      } else if (verifyError.message.includes('signature')) {
+        errorMessage = 'Invalid token signature. Please try signing in again.';
+      }
+
+      return res.status(401).json({
+        message: errorMessage,
+        error: verifyError.message
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Google registration error:', error);
+    res.status(500).json({
+      message: 'Server error during Google registration',
       error: error.message
     });
   }

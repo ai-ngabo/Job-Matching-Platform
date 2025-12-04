@@ -3,7 +3,7 @@ import Application from '../models/Application.js';
 import Job from '../models/Job.js';
 import User from '../models/User.js';
 import auth from '../middleware/auth.js';
-import { sendApplicationStatusEmail } from '../utils/emailService.js';
+import { sendApplicationStatusEmail, sendApplicationConfirmationEmail } from '../utils/emailService.js';
 
 const router = express.Router();
 
@@ -80,6 +80,21 @@ router.post('/job/:jobId', auth, async (req, res) => {
 
     await application.save();
 
+    // 📧 SEND APPLICATION CONFIRMATION EMAIL TO APPLICANT
+    try {
+      await sendApplicationConfirmationEmail({
+        email: application.applicantEmail,
+        candidateName: application.applicantName,
+        jobTitle: application.jobTitle,
+        companyName: application.companyName,
+        applicationId: application._id.toString()
+      });
+      console.log(`📧 Application confirmation email sent to ${application.applicantEmail}`);
+    } catch (emailError) {
+      console.error('Error sending application confirmation email:', emailError.message);
+      // Don't fail the request if email fails
+    }
+
     // Increment application count on job
     await Job.findByIdAndUpdate(jobId, {
       $inc: { applicationCount: 1 }
@@ -100,6 +115,54 @@ router.post('/job/:jobId', auth, async (req, res) => {
     console.error('Apply for job error:', error);
     res.status(500).json({
       message: 'Server error submitting application',
+      error: error.message
+    });
+  }
+});
+
+// @route   GET /api/applications
+// @desc    Get all applications for job seeker (main applications page)
+// @access  Private (Job Seeker only)
+router.get('/', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({
+        message: 'Only job seekers can access applications'
+      });
+    }
+
+    const { page = 1, limit = 10, status } = req.query;
+
+    // Build filter
+    const filter = { applicant: req.user.id };
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+
+    const applications = await Application.find(filter)
+      .populate('job', 'title location jobType category companyName')
+      .sort({ appliedAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Application.countDocuments(filter);
+
+    res.json({
+      message: 'Applications retrieved successfully',
+      applications,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalApplications: total,
+        hasNext: page * limit < total,
+        hasPrev: page > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('Get applications error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving applications',
       error: error.message
     });
   }
@@ -208,6 +271,7 @@ router.get('/company/received', auth, async (req, res) => {
     });
   }
 });
+
 // @route   PUT /api/applications/:id/status
 // @desc    Update application status (Company only)
 // @access  Private (Company only)
@@ -370,6 +434,81 @@ router.get('/stats', auth, async (req, res) => {
     });
   }
 });
+
+// @route   GET /api/applications/recent
+// @desc    Get recent applications for job seeker dashboard
+// @access  Private (Job Seeker only)
+router.get('/recent', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({
+        message: 'Only job seekers can access recent applications'
+      });
+    }
+
+    const { limit = 5 } = req.query;
+
+    const applications = await Application.find({ applicant: req.user.id })
+      .populate('job', 'title companyName location jobType')
+      .sort({ appliedAt: -1 })
+      .limit(parseInt(limit))
+      .select('status appliedAt jobTitle companyName');
+
+    res.json({
+      message: 'Recent applications retrieved successfully',
+      applications: applications.map(app => ({
+        _id: app._id,
+        status: app.status,
+        createdAt: app.appliedAt,
+        jobId: {
+          title: app.job?.title || app.jobTitle,
+          companyName: app.job?.companyName || app.companyName,
+          location: app.job?.location
+        }
+      }))
+    });
+
+  } catch (error) {
+    console.error('Get recent applications error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving recent applications',
+      error: error.message
+    });
+  }
+});
+
+// @route   GET /api/applications/user
+// @desc    Get user's applications for dashboard
+// @access  Private (Job Seeker only)
+router.get('/user', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({
+        message: 'Only job seekers can access applications'
+      });
+    }
+
+    const applications = await Application.find({ applicant: req.user.id })
+      .populate('job', 'title company location type salary')
+      .populate('company', 'name logo')
+      .sort({ appliedAt: -1 });
+
+    res.json({
+      success: true,
+      data: applications,
+      count: applications.length
+    });
+
+  } catch (error) {
+    console.error('Get user applications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving applications',
+      error: error.message
+    });
+  }
+});
+
 // @route   DELETE /api/applications/:id
 // @desc    Cancel/withdraw an application
 // @access  Private (Job Seeker only - applicant)
@@ -422,6 +561,5 @@ router.delete('/:id', auth, async (req, res) => {
     });
   }
 });
-
 
 export default router;

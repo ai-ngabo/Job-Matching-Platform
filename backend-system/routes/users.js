@@ -142,6 +142,142 @@ router.get('/jobseekers', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/users/saved-jobs/count
+// @desc    Get count of saved jobs
+// @access  Private
+router.get('/saved-jobs/count', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const savedCount = user.savedJobs ? user.savedJobs.length : 0;
+    
+    res.json({
+      success: true,
+      count: savedCount
+    });
+  } catch (error) {
+    console.error('Get saved jobs count error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// @route   GET /api/users/test-dashboard
+// @desc    Test dashboard endpoints
+// @access  Private (Job Seeker only)
+router.get('/test-dashboard', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only job seekers can access this endpoint'
+      });
+    }
+
+    // Check user data
+    const user = await User.findById(req.user.id);
+    
+    res.json({
+      success: true,
+      userData: {
+        hasSavedJobsField: user.savedJobs !== undefined,
+        savedJobsCount: user.savedJobs ? user.savedJobs.length : 0,
+        hasProfileViews: user.profile.views !== undefined,
+        profileViews: user.profile.views || 0,
+        profileCompleteness: {
+          hasSkills: user.profile.skills?.length > 0,
+          hasExperience: user.profile.experience?.length > 0,
+          hasEducation: user.profile.education?.length > 0,
+          hasBio: !!user.profile.bio,
+          hasAvatar: !!user.profile.avatar
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Test dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test endpoint error',
+      error: error.message
+    });
+  }
+});
+
+// @route   GET /api/users/profile/views
+// @desc    Get user profile views count
+// @access  Private
+router.get('/profile/views', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    res.json({
+      success: true,
+      views: user.profile?.views || 0,
+      lastViewed: user.profile?.lastViewed
+    });
+  } catch (error) {
+    console.error('Get profile views error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
+});
+
+// @route   GET /api/users/profile/completeness
+// @desc    Calculate profile completeness score
+// @access  Private
+router.get('/profile/completeness', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const profile = user.profile || {};
+    
+    let score = 0;
+    
+    // Basic Info (40 points)
+    if (profile.firstName && profile.lastName) score += 20;
+    if (profile.phone) score += 10;
+    if (profile.location) score += 10;
+    
+    // Professional Info (35 points)
+    if (profile.bio && profile.bio.length > 50) score += 15;
+    if (profile.skills && profile.skills.length >= 3) score += 10;
+    if (profile.experienceLevel) score += 5;
+    if (profile.educationLevel) score += 5;
+    
+    // Documents (15 points)
+    if (profile.documents?.cv?.url) score += 10;
+    if (profile.documents?.idDocument?.url) score += 5;
+    
+    // Profile Media (10 points)
+    if (profile.avatar) score += 10;
+    
+    res.json({
+      success: true,
+      completeness: Math.min(100, score),
+      breakdown: {
+        basicInfo: profile.firstName && profile.lastName ? 20 : 0 + (profile.phone ? 10 : 0) + (profile.location ? 10 : 0),
+        professionalInfo: (profile.bio && profile.bio.length > 50 ? 15 : 0) + 
+                         (profile.skills && profile.skills.length >= 3 ? 10 : 0) +
+                         (profile.experienceLevel ? 5 : 0) +
+                         (profile.educationLevel ? 5 : 0),
+        documents: (profile.documents?.cv?.url ? 10 : 0) + (profile.documents?.idDocument?.url ? 5 : 0),
+        media: profile.avatar ? 10 : 0
+      }
+    });
+    
+  } catch (error) {
+    console.error('Calculate profile completeness error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
+});
+
 // @route   PUT /api/users/profile/view
 // @desc    Increment profile view count
 // @access  Private (Company only)
