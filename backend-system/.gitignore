@@ -5,9 +5,13 @@ dist/
 
 # Environment
 .env
+.env.production
+.env.example
 .env.local
 
 # OS / Editor
 .DS_Store
 Thumbs.db
 *.log
+.vscode/
+.idea/

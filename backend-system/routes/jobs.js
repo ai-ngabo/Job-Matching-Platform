@@ -2,6 +2,7 @@ import express from 'express';
 import Job from '../models/Job.js';
 import auth from '../middleware/auth.js';
 import User from '../models/User.js';
+import { calculateQualificationScore } from '../utils/aiUtils.js';
 
 const router = express.Router();
 
@@ -183,34 +184,11 @@ router.get('/recommended', auth, async (req, res) => {
       .limit(parseInt(req.query.limit) || 6)
       .sort({ createdAt: -1 });
 
-    // Calculate simple match score for each job
-    const jobsWithScore = jobs.map(job => {
-      const jobSkills = job.skillsRequired || [];
-      
-      // Calculate match percentage based on skills
-      let matchScore = 0;
-      if (jobSkills.length > 0 && userSkills.length > 0) {
-        // Count matching skills
-        const matchedSkills = userSkills.filter(skill => 
-          jobSkills.some(jobSkill => 
-            jobSkill.toLowerCase().includes(skill.toLowerCase()) ||
-            skill.toLowerCase().includes(jobSkill.toLowerCase())
-          )
-        );
-        matchScore = Math.round((matchedSkills.length / jobSkills.length) * 100);
-      } else {
-        // If no skills specified, use a base score
-        matchScore = Math.floor(Math.random() * 30) + 50; // 50-80% random score
-      }
-      
-      // Cap at 100%
-      matchScore = Math.min(100, matchScore);
-      
-      return {
-        ...job.toObject(),
-        matchScore: matchScore
-      };
-    });
+    // Calculate match score using the centralized qualification score logic
+    const jobsWithScore = jobs.map(job => ({
+      ...job.toObject(),
+      matchScore: Math.round(calculateQualificationScore(user, job))
+    }));
 
     // Sort by match score (highest first)
     jobsWithScore.sort((a, b) => b.matchScore - a.matchScore);

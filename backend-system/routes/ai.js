@@ -3,75 +3,10 @@ import Application from '../models/Application.js';
 import Job from '../models/Job.js';
 import User from '../models/User.js';
 import auth from '../middleware/auth.js';
+import { calculateQualificationScore, calculateSkillsMatch, calculateExperienceMatch, calculateEducationMatch } from '../utils/aiUtils.js';
 
 const router = express.Router();
 
-// Helper function to calculate qualification score
-const calculateQualificationScore = (applicant, job) => {
-  let score = 0;
-  let maxScore = 100;
-
-  // Skills match (40 points)
-  if (applicant.profile?.skills && job.requiredSkills) {
-    const applicantSkills = applicant.profile.skills.map(s => s.toLowerCase());
-    const requiredSkills = job.requiredSkills.map(s => s.toLowerCase());
-    const matchedSkills = applicantSkills.filter(skill => 
-      requiredSkills.some(req => req.includes(skill) || skill.includes(req))
-    );
-    const skillScore = (matchedSkills.length / requiredSkills.length) * 40;
-    score += skillScore;
-  } else if (job.requiredSkills) {
-    score += 0;
-  } else {
-    score += 40;
-  }
-
-  // Experience (35 points)
-  if (applicant.profile?.experience) {
-    const yearsExperience = applicant.profile.experience.length > 0
-      ? applicant.profile.experience.reduce((total, exp) => {
-          const endYear = exp.endDate ? new Date(exp.endDate).getFullYear() : new Date().getFullYear();
-          const startYear = new Date(exp.startDate).getFullYear();
-          return total + (endYear - startYear);
-        }, 0)
-      : 0;
-
-    const minExperience = job.experienceLevel === 'entry' ? 0 : 
-                         job.experienceLevel === 'intermediate' ? 2 :
-                         job.experienceLevel === 'senior' ? 5 : 0;
-
-    if (yearsExperience >= minExperience) {
-      score += Math.min(35, (yearsExperience / 10) * 35);
-    } else {
-      score += (yearsExperience / minExperience) * 25;
-    }
-  } else {
-    score += 0;
-  }
-
-  // Education (15 points)
-  if (applicant.profile?.education) {
-    const educationLevel = applicant.profile.education[0]?.level || '';
-    const requiredEducation = job.educationLevel || '';
-
-    if (educationLevel.toLowerCase().includes('master') || educationLevel.toLowerCase().includes('phd')) {
-      score += 15;
-    } else if (educationLevel.toLowerCase().includes('bachelor')) {
-      score += 10;
-    } else if (educationLevel.toLowerCase().includes('diploma')) {
-      score += 5;
-    }
-  } else {
-    score += 0;
-  }
-
-  // CV uploaded (10 points)
-  if (applicant.profile?.documents?.cv?.url) {
-    score += 10;
-  }
-
-  return Math.min(score, 100);
-};
 
 // @route   POST /api/ai/screen-cv
 // @desc    Screen CV against job requirements
@@ -105,14 +40,14 @@ router.post('/screen-cv', auth, async (req, res) => {
     const applicant = application.applicant;
     const job = application.job;
 
-    // Calculate qualification score
-    const qualificationScore = calculateQualificationScore(applicant, job);
+  // Calculate qualification score
+  const qualificationScore = calculateQualificationScore(applicant, job);
 
     // Store the screening result
     application.aiScreening = {
       screenedAt: new Date(),
-      qualificationScore: qualificationScore,
-      status: qualificationScore >= 70 ? 'passed' : qualificationScore >= 50 ? 'maybe' : 'failed'
+      qualificationScore: Math.round(qualificationScore),
+      status: Math.round(qualificationScore) >= 70 ? 'passed' : Math.round(qualificationScore) >= 50 ? 'maybe' : 'failed'
     };
 
     await application.save();
@@ -201,16 +136,16 @@ router.get('/qualification-score/:applicationId', auth, async (req, res) => {
 
     // Calculate score if not already done
     let score = application.aiScreening?.qualificationScore;
-    if (!score) {
-      score = calculateQualificationScore(application.applicant, application.job);
+    if (!score && score !== 0) {
+      score = Math.round(calculateQualificationScore(application.applicant, application.job));
     }
 
     res.json({
       message: 'Qualification score retrieved',
       applicationId: application._id,
       candidateName: application.applicantName,
-      qualificationScore: score,
-      scoreLevel: score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : 'Low'
+      qualificationScore: Math.round(score),
+      scoreLevel: Math.round(score) >= 80 ? 'Excellent' : Math.round(score) >= 60 ? 'Good' : Math.round(score) >= 40 ? 'Fair' : 'Low'
     });
 
   } catch (error) {
@@ -251,7 +186,7 @@ router.get('/shortlist/:jobId', auth, async (req, res) => {
     // Calculate scores for all applications
     const scoredApplications = applications.map(app => ({
       ...app.toObject(),
-      qualificationScore: calculateQualificationScore(app.applicant, job),
+      qualificationScore: Math.round(calculateQualificationScore(app.applicant, job)),
       isShortlisted: app.isShortlisted || false
     }));
 
@@ -269,9 +204,9 @@ router.get('/shortlist/:jobId', auth, async (req, res) => {
         id: app._id,
         candidateName: app.applicantName,
         candidateEmail: app.applicantEmail,
-        qualificationScore: app.qualificationScore,
-        scoreLevel: app.qualificationScore >= 80 ? 'Excellent' : 
-                    app.qualificationScore >= 60 ? 'Good' : 'Fair',
+        qualificationScore: Math.round(app.qualificationScore),
+        scoreLevel: Math.round(app.qualificationScore) >= 80 ? 'Excellent' : 
+                    Math.round(app.qualificationScore) >= 60 ? 'Good' : 'Fair',
         status: app.status,
         isShortlisted: app.isShortlisted,
         appliedAt: app.appliedAt
@@ -370,7 +305,7 @@ router.get('/recommendations/:applicationId', auth, async (req, res) => {
 
     const scoredJobs = recommendedJobs.map(job => ({
       ...job.toObject(),
-      recommendationScore: calculateQualificationScore(applicant, job)
+      recommendationScore: Math.round(calculateQualificationScore(applicant, job))
     }))
     .sort((a, b) => b.recommendationScore - a.recommendationScore)
     .slice(0, 5);
@@ -392,6 +327,64 @@ router.get('/recommendations/:applicationId', auth, async (req, res) => {
     console.error('Get recommendations error:', error);
     res.status(500).json({
       message: 'Error retrieving recommendations',
+      error: error.message
+    });
+  }
+});
+
+// @route   GET /api/ai/match-score/:jobId
+// @desc    Get match score for current job seeker against a specific job
+// @access  Private (Job Seeker only)
+router.get('/match-score/:jobId', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({
+        message: 'Only job seekers can view match scores'
+      });
+    }
+
+    const jobId = req.params.jobId;
+    const jobSeekerId = req.user.id;
+
+    // Get the job
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({
+        message: 'Job not found'
+      });
+    }
+
+    // Get the job seeker
+    const jobSeeker = await User.findById(jobSeekerId);
+    if (!jobSeeker) {
+      return res.status(404).json({
+        message: 'Job seeker profile not found'
+      });
+    }
+
+    // Calculate match score
+    const matchScore = calculateQualificationScore(jobSeeker, job);
+
+    res.json({
+      message: 'Match score calculated successfully',
+      jobId: jobId,
+      jobTitle: job.title,
+      matchScore: Math.round(matchScore),
+      matchLevel: matchScore >= 80 ? 'Excellent' : 
+                  matchScore >= 60 ? 'Good' : 
+                  matchScore >= 40 ? 'Fair' : 'Low',
+      matchBreakdown: {
+        skillsMatch: calculateSkillsMatch(jobSeeker, job),
+        experienceMatch: calculateExperienceMatch(jobSeeker, job),
+        educationMatch: calculateEducationMatch(jobSeeker, job),
+        documentReady: !!jobSeeker.profile?.documents?.cv?.url
+      }
+    });
+
+  } catch (error) {
+    console.error('Get match score error:', error);
+    res.status(500).json({
+      message: 'Error calculating match score',
       error: error.message
     });
   }
