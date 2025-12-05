@@ -132,6 +132,41 @@ const JobListings = () => {
     navigate(`/jobs/${jobId}`);
   };
 
+  // Small animated count-up component for match %
+  const AnimatedMatch = ({ score }) => {
+    const [display, setDisplay] = useState(0);
+
+    useEffect(() => {
+      if (typeof score !== 'number' || score === null) return;
+      let frame = null;
+      let start = null;
+      const duration = 800; // ms
+      const to = Math.max(0, Math.min(100, Math.round(score)));
+
+      const easeOutCubic = (t) => (--t) * t * t + 1;
+
+      const step = (timestamp) => {
+        if (!start) start = timestamp;
+        const progress = Math.min((timestamp - start) / duration, 1);
+        const value = Math.round(to * easeOutCubic(progress));
+        setDisplay(value);
+        if (progress < 1) frame = requestAnimationFrame(step);
+      };
+
+      frame = requestAnimationFrame(step);
+
+      return () => {
+        if (frame) cancelAnimationFrame(frame);
+      };
+    }, [score]);
+
+    if (typeof score !== 'number' || score === null) return null;
+
+    return (
+      <span className="tag match" role="status" aria-label={`${score}% match`}>{display}% Match</span>
+    );
+  };
+
   // Filter jobs based on multi-field search and filters (name, company, field, skills, job type, location)
   useEffect(() => {
     const searchLower = searchTerm.toLowerCase().trim();
@@ -304,10 +339,12 @@ const JobListings = () => {
                 <div className="meta-tags">
                   <span className="tag type">{job.type}</span>
                   <span className="tag category">{job.category}</span>
-                  {typeof job.matchScore === 'number' && (
-                    <span className="tag match">{job.matchScore}% Match</span>
-                  )}
                 </div>
+
+                {/* Floating animated match badge (rendered outside meta-tags to float top-right) */}
+                {typeof job.matchScore === 'number' && (
+                  <AnimatedMatch score={job.matchScore} />
+                )}
 
                 {/* Description Preview */}
                 <p className="job-description">
