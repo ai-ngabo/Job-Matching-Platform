@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, MapPin, Building2, Clock, DollarSign, AlertCircle, Bookmark, BookmarkCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import api from '../../../services/api';
 import './JobListings.css';
 
 const JobListings = () => {
@@ -20,33 +21,55 @@ const JobListings = () => {
 
   const jobTypes = ['full-time', 'part-time', 'contract', 'internship', 'remote'];
   const categories = ['technology', 'business', 'healthcare', 'education', 'engineering', 'design', 'marketing', 'sales', 'customer-service'];
+  const [matchScoreByJob, setMatchScoreByJob] = useState({}); // Stable AI match scores per job for this user
 
   // Fetch real jobs from API
   useEffect(() => {
-    fetchJobs();
-    // Load saved jobs from localStorage
-    const saved = JSON.parse(localStorage.getItem('savedJobs') || '[]');
-    setSavedJobs(saved);
+    const init = async () => {
+      await Promise.all([fetchRecommendedMatches(), fetchJobs()]);
+      // Load saved jobs from localStorage
+      const saved = JSON.parse(localStorage.getItem('savedJobs') || '[]');
+      setSavedJobs(saved);
+    };
+
+    init();
   }, []);
+
+  // Fetch AI recommended jobs for the current job seeker and build a stable match score map
+  const fetchRecommendedMatches = async () => {
+    try {
+      const response = await api.get('/jobs/recommended?limit=50');
+      const data = response.data || {};
+      const recommendedJobs = Array.isArray(data.data) ? data.data : [];
+
+      const scores = {};
+      recommendedJobs.forEach(job => {
+        if (job._id && typeof job.matchScore === 'number') {
+          scores[job._id] = job.matchScore;
+        }
+      });
+
+      setMatchScoreByJob(scores);
+    } catch (error) {
+      console.error('❌ Error fetching AI match scores for jobs list:', error);
+      // Fail silently; job list will still work without match scores
+    }
+  };
 
   const fetchJobs = async () => {
     try {
       setLoading(true);
       setError('');
-      
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${apiBase}/jobs?limit=50&sortBy=createdAt&sortOrder=desc`, {
-        headers: {
-          'Content-Type': 'application/json'
+
+      const response = await api.get('/jobs', {
+        params: {
+          limit: 50,
+          sortBy: 'createdAt',
+          sortOrder: 'desc'
         }
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch jobs: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const activeJobs = data.jobs || [];
+      const activeJobs = response.data.jobs || [];
       
       // Transform backend data to match frontend format
       const transformedJobs = activeJobs.map(job => ({
@@ -67,7 +90,10 @@ const JobListings = () => {
         skills: job.skillsRequired || [],
         views: job.views || 0,
         applications: job.applicationCount || 0,
-        matchScore: Math.floor(Math.random() * 30) + 70 // Placeholder match score
+        // Stable AI match score per job for this user (from /jobs/recommended)
+        matchScore: typeof matchScoreByJob[job._id] === 'number' && matchScoreByJob[job._id] >= 40
+          ? matchScoreByJob[job._id]
+          : null
       }));
 
       setJobs(transformedJobs);
@@ -106,14 +132,43 @@ const JobListings = () => {
     navigate(`/jobs/${jobId}`);
   };
 
-  // Filter jobs based on search and filters
+  // Filter jobs based on multi-field search and filters (name, company, field, skills, job type, location)
   useEffect(() => {
-    let result = jobs.filter(job => 
-      job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    let result = jobs.filter(job => {
+      // If search term is empty, include all jobs
+      if (!searchLower) return true;
+      
+      // Search across multiple fields:
+      // 1. Job title/name
+      const titleMatch = job.title?.toLowerCase().includes(searchLower);
+      
+      // 2. Company name
+      const companyMatch = job.company?.toLowerCase().includes(searchLower);
+      
+      // 3. Category/field
+      const categoryMatch = job.category?.toLowerCase().includes(searchLower);
+      
+      // 4. Location
+      const locationMatch = job.location?.toLowerCase().includes(searchLower);
+      
+      // 5. Job type (full-time, remote, etc.)
+      const typeMatch = job.type?.toLowerCase().includes(searchLower);
+      
+      // 6. Required skills
+      const skillsMatch = job.skills?.some(skill => 
+        skill?.toLowerCase().includes(searchLower)
+      );
+      
+      // 7. Salary range (search for numbers like "100000")
+      const salaryMatch = job.salary?.toLowerCase().includes(searchLower);
+      
+      // Return true if matches any field
+      return titleMatch || companyMatch || categoryMatch || locationMatch || typeMatch || skillsMatch || salaryMatch;
+    });
 
+    // Apply additional dropdown filters
     if (filters.jobType) {
       result = result.filter(job => job.type === filters.jobType);
     }
@@ -137,7 +192,7 @@ const JobListings = () => {
               <Search className="search-icon" />
               <input
                 type="text"
-                placeholder="Search jobs, companies, or skills..."
+                placeholder="Search: job title, company, skills, location, field, salary..."
                 className="search-input"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -249,7 +304,9 @@ const JobListings = () => {
                 <div className="meta-tags">
                   <span className="tag type">{job.type}</span>
                   <span className="tag category">{job.category}</span>
-                  <span className="tag match">{job.matchScore}% Match</span>
+                  {typeof job.matchScore === 'number' && (
+                    <span className="tag match">{job.matchScore}% Match</span>
+                  )}
                 </div>
 
                 {/* Description Preview */}

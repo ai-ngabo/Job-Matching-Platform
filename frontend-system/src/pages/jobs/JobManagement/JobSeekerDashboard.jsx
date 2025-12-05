@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
+import { profileService } from '../../../services/profileService';
 import './JobSeekerDashboard.css';
 
 const JobManagement = () => {
@@ -15,6 +16,8 @@ const JobManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [recommendedJobs, setRecommendedJobs] = useState([]);
+  const [detailedScore, setDetailedScore] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -59,16 +62,18 @@ const JobManagement = () => {
       // Fetch all data in parallel for better performance
       console.log('📊 Fetching dashboard data...');
 
-      const [statsResponse, jobsResponse, profileResponse] = await Promise.all([
+      const [statsResponse, jobsResponse, profileResponse, applicationsResponse] = await Promise.all([
         api.get('/applications/stats'),
         api.get('/jobs?limit=6'),
-        api.get('/users/profile')
+        api.get('/users/profile'),
+        api.get('/applications?limit=50')
       ]);
 
-      const applicationStats = statsResponse.data.stats || {};
-      const jobs = jobsResponse.data.jobs || [];
-      const userData = profileResponse.data.user || profileResponse.data;  
-      const userProfile = userData.profile || {};
+  const applicationStats = statsResponse.data.stats || {};
+  const jobs = jobsResponse.data.jobs || [];
+  const userData = profileResponse.data.user || profileResponse.data;  
+  const userProfile = userData.profile || {};
+  const applications = applicationsResponse.data.applications || [];
 
       console.log('✅ Dashboard data fetched:', {
         applicationStats,
@@ -76,34 +81,24 @@ const JobManagement = () => {
         userProfile: userProfile
       });
 
-      // Calculate AI match score based on profile completeness and job compatibility
+  // Calculate AI match score based on detailed profile scoring (re-using profileService)
       const totalApps = applicationStats.totalApplications || 0;
 
-      // Calculate profile completeness score (0-100)
-      const profileCompleteness = calculateProfileCompleteness(userData);  
+  // Use the centralized detailed scoring helper which returns breakdown, strengths and improvements
+  // Pass the fetched jobs so qualifications can be matched against real listings
+  const detailed = profileService.calculateDetailedScore(userData, applications, jobs);
 
-      // Calculate application success rate (if any applications)
-      const successRate = totalApps > 0
-        ? Math.round(((applicationStats.statusCounts?.accepted || 0) / totalApps) * 50)
-        : 0;
+      console.log('🎯 AI Detailed Score:', detailed);
 
-      // Combine scores for AI match score (60% profile completeness, 40% success rate)
-      const matchScore = Math.round((profileCompleteness * 0.6) + (successRate * 0.4));
-
-      // Ensure minimum score of 10% for users with some profile data      
-      const finalMatchScore = Math.max(matchScore, profileCompleteness > 0 ? 10 : 0);
-
-      console.log('🎯 AI Match Score breakdown:', {
-        profileCompleteness,
-        successRate,
-        finalScore: finalMatchScore
-      });
+      const finalMatchScore = detailed?.aiMatchScore ?? 0;
 
       setStats({
         totalApplications: totalApps,
         aiMatchScore: finalMatchScore,
         profileViews: userProfile.views || 0
       });
+
+      setDetailedScore(detailed);
 
       setRecommendedJobs(jobs);
     } catch (error) {
@@ -129,12 +124,49 @@ const JobManagement = () => {
     return 'Complete your profile to improve';
   };
 
+  const formatLabel = (key) => {
+    // Convert camelCase or snake_case keys to human readable labels
+    return key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .replace(/^./, str => str.toUpperCase());
+  };
+
   return (
     <div className="jobseeker-dashboard">
       <div className="dashboard-header">
         <h1>Welcome back, {user?.profile?.firstName || 'User'}!</h1>       
         <p>Your AI-powered job search starts here</p>
       </div>
+
+      {/* AI Proficiency Summary in Header */}
+      {!loading && detailedScore && (
+        <div className="proficiency-header">
+          <div className="proficiency-level-badge">
+            <div className="level-label">Your Proficiency Level</div>
+            <div className={`level-badge level-${detailedScore.proficiencyLevel?.toLowerCase() || 'beginner'}`}>
+              {detailedScore.proficiencyLevel || 'Beginner'}
+            </div>
+            <div className="level-score">{stats.aiMatchScore}% Match Score</div>
+          </div>
+          <div className="strengths-areas">
+            <div className="strength-item">
+              <span className="strength-icon">✨</span>
+              <div className="strength-content">
+                <h4>Top Strengths</h4>
+                <p>{detailedScore.strengths?.slice(0, 2).join(', ') || 'Build your profile to unlock strengths'}</p>
+              </div>
+            </div>
+            <div className="improvement-item">
+              <span className="improvement-icon">🎯</span>
+              <div className="improvement-content">
+                <h4>Areas to Improve</h4>
+                <p>{detailedScore.improvementAreas?.slice(0, 2).join(', ') || 'Complete your profile to identify improvements'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="error-message" style={{
@@ -170,6 +202,59 @@ const JobManagement = () => {
               >
                 Improve Score
               </button>
+            )}
+            {!loading && detailedScore && (
+              <>
+                <button
+                  className="view-details-btn"
+                  onClick={() => setShowDetails(s => !s)}
+                  style={{ marginTop: '8px' }}
+                >
+                  {showDetails ? 'Hide Details' : 'View Match Details'}
+                </button>
+
+                {showDetails && (
+                  <div className="match-details" style={{ marginTop: '12px' }}>
+                    <h4 style={{ margin: '6px 0' }}>Match Breakdown</h4>
+                    <ul className="breakdown-list">
+                      {detailedScore.breakdown && Object.entries(detailedScore.breakdown).map(([k, v]) => (
+                        <li key={k}><strong>{formatLabel(k)}:</strong> {Math.round(v)}%</li>
+                      ))}
+                    </ul>
+
+                    {detailedScore.strengths && (
+                      <div className="strengths" style={{ marginTop: '8px' }}>
+                        <h5 style={{ margin: '6px 0' }}>Strengths</h5>
+                        <ul>
+                          {detailedScore.strengths.map(s => <li key={s}>{s}</li>)}
+                        </ul>
+                      </div>
+                    )}
+
+                    {detailedScore.improvementAreas && (
+                      <div className="improvements" style={{ marginTop: '8px' }}>
+                        <h5 style={{ margin: '6px 0' }}>Areas to improve</h5>
+                        <ul>
+                          {detailedScore.improvementAreas.map(item => (
+                            <li key={item}>
+                              {item}
+                              {item.toLowerCase().includes('profile') && (
+                                <button
+                                  className="action-link"
+                                  onClick={() => navigate('/profile')}
+                                  style={{ marginLeft: '8px' }}
+                                >
+                                  Edit Profile
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

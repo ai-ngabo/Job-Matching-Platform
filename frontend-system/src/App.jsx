@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';        
-import { healthCheck } from './services/healthCheck';
+import api from './services/api';
 import LandingPage from '../src/pages/dashboard/LandingPage/LandingPage';
 import Navigation from './components/shared/Navigation/Navigation';   
 import Login from './pages/auth/Login/Login';
@@ -28,15 +28,13 @@ const BackendStatus = () => {
     const checkBackend = async () => {
       try {
         console.log('🔍 Checking backend health...');
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-                            process.env.REACT_APP_API_URL || 
-                            'https://job-matching-platform-zvzw.onrender.com/api';
-        
-        const response = await fetch(`${API_BASE_URL}/health`);
-        const data = await response.json();
-        
-        console.log('🏥 Backend health:', data);
-        setBackendOnline(response.ok);
+
+        // Use the shared Axios API client so the base URL (including /api)
+        // always comes from environment variables in one place.
+        const response = await api.get('/health');
+
+        console.log('🏥 Backend health:', response.data);
+        setBackendOnline(response.status === 200);
       } catch (error) {
         console.error('❌ Backend health check failed:', error);
         setBackendOnline(false);
@@ -116,9 +114,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AuthDebug />
         <div className="app">
-          <BackendStatus />
           <Navigation />
           <main className="main-content">
             <Routes>

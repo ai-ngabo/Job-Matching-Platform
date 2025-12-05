@@ -21,6 +21,126 @@
   margin: 0;
 }
 
+/* Proficiency Header */
+.proficiency-header {
+  background: linear-gradient(135deg, #0073e6 0%, #9333ea 100%);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  color: white;
+  box-shadow: 0 4px 20px rgba(0, 115, 230, 0.15);
+}
+
+.proficiency-level-badge {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.level-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0.95;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.level-badge {
+  display: inline-block;
+  font-size: 2rem;
+  font-weight: 800;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 0.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.level-badge.level-expert {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(236, 72, 153, 0.3));
+}
+
+.level-badge.level-advanced {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3));
+}
+
+.level-badge.level-intermediate {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(59, 130, 246, 0.3));
+}
+
+.level-badge.level-beginner {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.level-score {
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.strengths-areas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.strength-item,
+.improvement-item {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 1.25rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.strength-icon,
+.improvement-icon {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+}
+
+.strength-content,
+.improvement-content {
+  flex: 1;
+}
+
+.strength-content h4,
+.improvement-content h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.strength-content p,
+.improvement-content p {
+  margin: 0;
+  font-size: 0.875rem;
+  opacity: 0.95;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .proficiency-header {
+    padding: 1.5rem;
+  }
+
+  .strengths-areas {
+    grid-template-columns: 1fr;
+  }
+
+  .strength-item,
+  .improvement-item {
+    padding: 1rem;
+  }
+}
+
 /* Stats Grid */
 .stats-grid {
   display: grid;

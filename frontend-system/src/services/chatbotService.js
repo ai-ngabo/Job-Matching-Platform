@@ -36,6 +36,13 @@ export const chatbotService = {
       'salary_advice': {
         message: "Provide salary negotiation advice and market rates"
       }
+      ,
+      'most_paying_fields': {
+        message: "Which fields or industries are paying the most right now?"
+      },
+      'how_to_get_job': {
+        message: "How can I get a job? Give me step by step guidance"
+      }
     };
 
     const actionConfig = quickActions[action];

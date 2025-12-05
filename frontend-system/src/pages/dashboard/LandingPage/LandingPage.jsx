@@ -15,6 +15,7 @@ import {
   Filter,
   Send
 } from 'lucide-react';
+import api from '../../../services/api';
 import './LandingPage.css';
 
 const LandingPage = () => {
@@ -39,22 +40,37 @@ const LandingPage = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormMessage('Thank you for reaching out! We will get back to you soon.');
-    
-    // Reset form
-    setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      contact: '',
-      message: ''
-    });
+    try {
+      setFormMessage('Sending your message...');
 
-    setTimeout(() => {
-      setFormMessage('');
-    }, 5000);
+      await api.post('/contact', {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        contact: formData.contact,
+        message: formData.message
+      });
+
+      setFormMessage('✅ Thank you for reaching out! Your message has been sent to the JobIFY team.');
+      
+      // Reset form
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        contact: '',
+        message: ''
+      });
+    } catch (error) {
+      console.error('❌ Contact form error:', error);
+      setFormMessage('⚠️ Failed to send your message. Please try again or email us at jobifyrwanda@gmail.com.');
+    } finally {
+      setTimeout(() => {
+        setFormMessage('');
+      }, 6000);
+    }
   };
 
   const features = [
@@ -237,11 +253,14 @@ const LandingPage = () => {
             Working together with leading organizations to create opportunities for Rwanda's youth
           </p>
           <div className="partners-grid">
-            {['Partner 1', 'Partner 2', 'Partner 3', 'Partner 4'].map((partner, index) => (
-              <div key={index} className="partner-item">
-                {partner}
-              </div>
-            ))}
+            <div className="partner-item">
+              <img src="/alu.png" alt="African Leadership University" className="partner-logo" />
+              <span className="partner-name">African Leadership University</span>
+            </div>
+            <div className="partner-item">
+              <img src="/mifotra.png" alt="Rwanda Ministry of Public Service and Labour" className="partner-logo" />
+              <span className="partner-name">Rwanda Ministry of Public Service and Labour</span>
+            </div>
           </div>
         </div>
       </section>

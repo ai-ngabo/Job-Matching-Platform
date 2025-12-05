@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Mail, MapPin, Briefcase } from 'lucide-react';
+import { Users, Mail, MapPin, Briefcase, Eye } from 'lucide-react';
 import './AllJobSeekers.css';
+import UserDetailModal from './UserDetailModal';
 
 const AllJobSeekers = () => {
   const [jobSeekers, setJobSeekers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
     fetchJobSeekers();
@@ -102,6 +104,15 @@ const AllJobSeekers = () => {
                     {expandedId === seeker._id ? 'Show Less' : 'Show More'}
                   </button>
 
+                  <button
+                    className="view-btn"
+                    onClick={() => setSelectedUser(seeker)}
+                    title="View all details"
+                  >
+                    <Eye size={16} />
+                    View Details
+                  </button>
+
                   {expandedId === seeker._id && (
                     <div className="jobseeker-bio">
                       <p>{seeker.profile.bio}</p>
@@ -143,6 +154,14 @@ const AllJobSeekers = () => {
           </div>
         ))}
       </div>
+
+      {selectedUser && (
+        <UserDetailModal
+          user={selectedUser}
+          userType="jobseeker"
+          onClose={() => setSelectedUser(null)}
+        />
+      )}
     </div>
   );
 };

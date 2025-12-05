@@ -20,6 +20,7 @@ const ApplicationsJobSeeker = () => {
     rejected: 0
   });
   const [filteredStatus, setFilteredStatus] = useState(null);
+  const [cancellingId, setCancellingId] = useState(null);
 
   useEffect(() => {
     fetchApplicationsAndStats();
@@ -101,6 +102,44 @@ const ApplicationsJobSeeker = () => {
     const deadlineDate = new Date(deadline);
     const daysLeft = Math.ceil((deadlineDate - now) / (1000 * 60 * 60 * 24));
     return daysLeft;
+  };
+
+  const handleCancelApplication = async (applicationId, currentStatus) => {
+    // Only allow cancelling for non-final statuses
+    const nonCancellableStatuses = ['accepted', 'rejected', 'interview'];
+    if (nonCancellableStatuses.includes(currentStatus)) {
+      alert(`You cannot cancel an application with status "${getStatusText(currentStatus)}".`);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Are you sure you want to cancel/unsend this application? This will withdraw your application from the company.'
+    );
+    if (!confirmed) return;
+
+    try {
+      setCancellingId(applicationId);
+      await api.delete(`/applications/${applicationId}`);
+
+      // Remove from local state and update stats
+      const remaining = applications.filter(app => app._id !== applicationId);
+      setApplications(remaining);
+
+      const updatedStats = {
+        total: remaining.length,
+        submitted: remaining.filter(app => app.status === 'submitted').length,
+        reviewing: remaining.filter(app => app.status === 'reviewing').length,
+        interview: remaining.filter(app => app.status === 'interview').length,
+        accepted: remaining.filter(app => app.status === 'accepted').length,
+        rejected: remaining.filter(app => app.status === 'rejected').length
+      };
+      setStats(updatedStats);
+    } catch (error) {
+      console.error('❌ Error cancelling application:', error);
+      alert(error.response?.data?.message || 'Failed to cancel application. Please try again.');
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   if (loading) {
@@ -256,6 +295,13 @@ const ApplicationsJobSeeker = () => {
                       onClick={() => navigate(`/jobs/${application.job?._id}`)}
                     >
                       View Details
+                    </button>
+                    <button
+                      className="btn-danger"
+                      disabled={cancellingId === application._id}
+                      onClick={() => handleCancelApplication(application._id, application.status)}
+                    >
+                      {cancellingId === application._id ? 'Cancelling...' : 'Cancel Application'}
                     </button>
                   </div>
                 </div>

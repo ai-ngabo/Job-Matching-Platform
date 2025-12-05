@@ -144,24 +144,27 @@
 
 .quick-action-buttons {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
 }
 
 .quick-action-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: white;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 500;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
   text-align: left;
   color: #475569;
+  white-space: normal;
+  min-height: 44px;
 }
 
 .quick-action-btn:hover:not(:disabled) {

@@ -28,6 +28,9 @@ const ApplicationsCompany = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [qualificationScores, setQualificationScores] = useState({});
   const [shortlistedCandidates, setShortlistedCandidates] = useState(new Set());
+  // Modal AI Match Score state
+  const [modalMatchScore, setModalMatchScore] = useState(null);
+  const [modalMatchLabel, setModalMatchLabel] = useState('');
 
   useEffect(() => {
     fetchApplications();
@@ -303,7 +306,18 @@ const ApplicationsCompany = () => {
                 </button>
                 <button
                   className="action-btn view-btn"
-                  onClick={() => setSelectedApplication(application)}
+                  onClick={async () => {
+                    setSelectedApplication(application);
+                    // Fetch AI match score for this application
+                    try {
+                      const res = await api.get(`/ai/qualification-score/${application._id}`);
+                      setModalMatchScore(res.data.qualificationScore);
+                      setModalMatchLabel(res.data.scoreLevel);
+                    } catch (e) {
+                      setModalMatchScore(null);
+                      setModalMatchLabel('');
+                    }
+                  }}
                 >
                   <Eye size={14} />
                   View
@@ -327,11 +341,19 @@ const ApplicationsCompany = () => {
 
       {/* Application Detail Modal */}
       {selectedApplication && (
-        <div className="modal-overlay" onClick={() => setSelectedApplication(null)}>
+        <div className="modal-overlay" onClick={() => {
+          setSelectedApplication(null);
+          setModalMatchScore(null);
+          setModalMatchLabel('');
+        }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button
               className="modal-close"
-              onClick={() => setSelectedApplication(null)}
+              onClick={() => {
+                setSelectedApplication(null);
+                setModalMatchScore(null);
+                setModalMatchLabel('');
+              }}
             >
               ×
             </button>
@@ -355,15 +377,16 @@ const ApplicationsCompany = () => {
                   {selectedApplication.applicant?.profile?.firstName} {selectedApplication.applicant?.profile?.lastName}
                 </h2>
                 <p>{selectedApplication.applicantEmail}</p>
-                <button
-                  className="view-full-profile-btn"
-                  onClick={() => {
-                    setSelectedProfile(selectedApplication.applicant);
-                    setSelectedApplication(null);
-                  }}
-                >
-                  View Full Profile
-                </button>
+                {modalMatchScore !== null && (
+                  <div className="ai-match-score-modal">
+                    <div className="ai-match-score-circle">
+                      {modalMatchScore}%
+                    </div>
+                    <span className="ai-match-score-label">
+                      {modalMatchLabel} Match
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

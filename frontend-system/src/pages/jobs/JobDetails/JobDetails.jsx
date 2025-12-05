@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 import { ArrowLeft, MapPin, DollarSign, Briefcase, Clock, Building2, Bookmark, BookmarkCheck, AlertCircle } from 'lucide-react';
 import './JobDetails.css';
 import api from '../../../services/api';
@@ -7,101 +8,97 @@ import api from '../../../services/api';
 const JobDetails = () => {
   const { jobId } = useParams(); 
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applicationSuccess, setApplicationSuccess] = useState(false);
+  // AI Match Score state
+  const [aiMatchScore, setAiMatchScore] = useState(null);
+  const [aiMatchLabel, setAiMatchLabel] = useState('');
 
   useEffect(() => {
     fetchJobDetails();
     checkIfSaved();
+    fetchAiMatchScore();
   }, [jobId]); 
-  console.log('📋 Fetching job details for jobId:', jobId)
 
+  // Check if this job is saved in localStorage
+  const checkIfSaved = () => {
+    try {
+      const savedList = JSON.parse(localStorage.getItem('savedJobs') || '[]');
+      setSaved(Array.isArray(savedList) && savedList.includes(jobId));
+    } catch (e) {
+      setSaved(false);
+    }
+  };
+
+  const toggleSaveJob = () => {
+    try {
+      const savedList = JSON.parse(localStorage.getItem('savedJobs') || '[]');
+      let updated = Array.isArray(savedList) ? [...savedList] : [];
+      if (updated.includes(jobId)) {
+        updated = updated.filter(id => id !== jobId);
+        setSaved(false);
+      } else {
+        updated.push(jobId);
+        setSaved(true);
+      }
+      localStorage.setItem('savedJobs', JSON.stringify(updated));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.error('Error toggling saved job:', e);
+    }
+  };
+  // Fetch AI match score for jobseeker
+  const fetchAiMatchScore = async () => {
+    if (!user || user.userType !== 'jobseeker') return;
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const res = await fetch(`${apiBase}/ai/match-score/${jobId}`, { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAiMatchScore(data.matchScore);
+      setAiMatchLabel(data.matchLevel);
+    } catch (e) {
+      setAiMatchScore(null);
+      setAiMatchLabel('');
+    }
+  };
   const fetchJobDetails = async () => {
     try {
-      console.log('📋 Fetching job details for jobId:', jobId); 
       setLoading(true);
 
       const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      const headers = {
-        'Content-Type': 'application/json'
-      };
+      const headers = { 'Content-Type': 'application/json' };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
       const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-      const url = `${apiBase}/jobs/${jobId}`; 
-      console.log('  → URL:', url);
+      const url = `${apiBase}/jobs/${jobId}`;
 
       const response = await fetch(url, { headers });
-      console.log('  ← Response status:', response.status);
-
       if (!response.ok) {
-        console.error('  ✗ Response not OK');
-        throw new Error(`Server returned ${response.status}`);        
+        throw new Error(`Server returned ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('  📦 Raw response:', data);
-
-      // API returns { job: {...}, message: '...' }
       const jobData = data.job || data;
-      console.log('  ✅ Job data extracted:', jobData);
-
-      // If company is populated, fetch full company details
-      if (jobData.company && typeof jobData.company === 'object' && jobData.company._id) {
-        try {
-          const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-          const companyResponse = await fetch(`${apiBase}/users/profile`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          // Company data is already in jobData.company from populate
-        } catch (err) {
-          console.warn('Could not fetch additional company data:', err);
-        }
-      }
 
       setJob(jobData);
-      setError(null);
     } catch (err) {
-      const errorMsg = err.message || 'Failed to load job details';   
-      console.error('❌ Error fetching job:', err);
-      console.error('  Details:', errorMsg);
-      setError(errorMsg);
+      console.error('Fetch job details error:', err);
+      setError(err.message || 'Failed to fetch job details');
     } finally {
       setLoading(false);
     }
   };
-
-  const checkIfSaved = () => {
-    const savedJobs = JSON.parse(localStorage.getItem('savedJobs')) || [];
-    setSaved(savedJobs.includes(jobId)); 
-  };
-
-  const toggleSaveJob = () => {
-    console.log('💾 Toggling save for job:', jobId, 'Current state:', saved); 
-    const savedJobs = JSON.parse(localStorage.getItem('savedJobs')) || [];
-    if (saved) {
-      const updated = savedJobs.filter(savedId => savedId !== jobId);
-      localStorage.setItem('savedJobs', JSON.stringify(updated));     
-      console.log('  → Removed from saved');
-    } else {
-      savedJobs.push(jobId); 
-      localStorage.setItem('savedJobs', JSON.stringify(savedJobs));   
-      console.log('  → Added to saved');
-    }
-    setSaved(!saved);
-    window.dispatchEvent(new Event('storage'));
-    console.log('  ✅ Storage event dispatched');
-  };
-
   const handleApply = async () => {
     try {
       // Get token from proper storage
@@ -175,6 +172,8 @@ const JobDetails = () => {
       </div>
     );
   }
+
+  const isCompanyView = location?.state?.companyView || user?.userType === 'company';
 
   return (
     <div className="job-details-container">
@@ -300,44 +299,62 @@ const JobDetails = () => {
         {/* Right Column - Application Card */}
         <div className="job-details-sidebar">
           <div className="application-card">
-            <h3>Ready to Apply?</h3>
-            
-            {applicationSuccess && (
-              <div className="success-message">
-                ✓ Application submitted successfully!
-              </div>
+            {!isCompanyView && (
+              <>
+                <h3>Ready to Apply?</h3>
+
+                {applicationSuccess && (
+                  <div className="success-message">
+                    ✓ Application submitted successfully!
+                  </div>
+                )}
+
+                {error && (
+                  <div className="error-message">
+                    {error}
+                  </div>
+                )}
+
+                <button 
+                  className="apply-btn"
+                  onClick={handleApply}
+                  disabled={applying}
+                >
+                  {applying ? 'Submitting...' : 'Apply Now'}
+                </button>
+
+                <button 
+                  className={`save-job-btn-sidebar ${saved ? 'saved' : ''}`}
+                  onClick={toggleSaveJob}
+                >
+                  {saved ? (
+                    <>
+                      <BookmarkCheck size={18} />
+                      Saved
+                    </>
+                  ) : (
+                    <>
+                      <Bookmark size={18} />
+                      Save Job
+                    </>
+                  )}
+                </button>
+              </>
             )}
 
-            {error && (
-              <div className="error-message">
-                {error}
-              </div>
+            {isCompanyView && (
+              <>
+                <h3>Manage Posting</h3>
+                <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                  <button className="btn" onClick={() => navigate('/jobs/manage', { state: { editJobId: job._id } })}>
+                    Edit Job
+                  </button>
+                  <button className="btn" onClick={() => navigate('/jobs/manage')}>
+                    View All My Jobs
+                  </button>
+                </div>
+              </>
             )}
-
-            <button 
-              className="apply-btn"
-              onClick={handleApply}
-              disabled={applying}
-            >
-              {applying ? 'Submitting...' : 'Apply Now'}
-            </button>
-
-            <button 
-              className={`save-job-btn-sidebar ${saved ? 'saved' : ''}`}
-              onClick={toggleSaveJob}
-            >
-              {saved ? (
-                <>
-                  <BookmarkCheck size={18} />
-                  Saved
-                </>
-              ) : (
-                <>
-                  <Bookmark size={18} />
-                  Save Job
-                </>
-              )}
-            </button>
           </div>
 
           {/* Company Contact Card */}
@@ -363,6 +380,6 @@ const JobDetails = () => {
       </div>
     </div>
   );
-};
+}
 
 export default JobDetails;

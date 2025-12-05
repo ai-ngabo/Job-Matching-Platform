@@ -1,18 +1,14 @@
 .register-container {
-  display: flex;
   min-height: 100vh;
-  background: #ffffff;
-}
-
-.register-left {
-  flex: 1;
-  position: relative;
-  background: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
-  overflow: hidden;
+  padding: 2rem 1.5rem;
+  background: radial-gradient(circle at top left, #e0f2fe, #f9fafb);
+}
+
+.register-left {
+  display: none;
 }
 
 .register-hero-image {
@@ -24,12 +20,16 @@
 }
 
 .register-right {
-  flex: 1;
+  width: 100%;
+  max-width: 480px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 2.25rem 2rem;
   background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+  border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
 .register-content {
@@ -317,15 +317,11 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .register-container {
-    flex-direction: column-reverse;
-  }
-  
-  .register-left {
-    display: none;
+    padding: 1.5rem 1.25rem;
   }
   
   .register-right {
-    padding: 1.5rem;
+    padding: 1.75rem 1.5rem;
   }
   
   .form-row {

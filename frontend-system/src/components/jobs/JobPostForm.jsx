@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import './JobPostForm.css';
+import api from '../../services/api';
 
 const JobPostForm = ({ job, onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -108,43 +109,23 @@ const JobPostForm = ({ job, onSuccess, onCancel }) => {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      
-      if (!token) {
-        setError('Not authenticated. Please log in first.');
-        setLoading(false);
-        return;
-      }
-      
-      const url = job 
-        ? `http://localhost:5000/api/jobs/${job._id}`
-        : 'http://localhost:5000/api/jobs';
-      const method = job ? 'PUT' : 'POST';
-
       const payload = {
         ...formData,
         requirements: formData.requirements.filter(r => r.trim()),
         skillsRequired: formData.skillsRequired.filter(s => s.trim())
       };
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Server error: ${response.status}`);
+      let response;
+      if (job) {
+        response = await api.put(`/jobs/${job._id}`, payload);
+      } else {
+        response = await api.post('/jobs', payload);
       }
 
       setSuccess(job ? 'Job updated successfully!' : 'Job posted successfully!');
       setTimeout(() => {
         onSuccess();
-      }, 1500);
+      }, 800);
     } catch (err) {
       console.error('Error saving job:', err);
       setError(err.message || 'Failed to save job');

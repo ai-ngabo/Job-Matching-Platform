@@ -49,7 +49,8 @@ export const profileService = {
   },
 
   // NEW: Calculate detailed score breakdown for dashboard
-  calculateDetailedScore: (user, applications = []) => {
+  // NEW: accepts optional `jobs` to allow qualification matching against job listings
+  calculateDetailedScore: (user, applications = [], jobs = []) => {
     const profile = user?.profile || {};
     const isCompany = user?.userType === 'company';
     
@@ -57,7 +58,7 @@ export const profileService = {
       return calculateCompanyDetailedScore(user);
     }
     
-    return calculateJobSeekerDetailedScore(profile, applications);
+    return calculateJobSeekerDetailedScore(profile, applications, jobs);
   }
 };
 
@@ -110,51 +111,93 @@ const calculateJobSeekerCompleteness = (user) => {
 };
 
 // Enhanced scoring for dashboard with more realistic weights
-const calculateJobSeekerDetailedScore = (profile, applications = []) => {
+const calculateJobSeekerDetailedScore = (profile, applications = [], jobs = []) => {
+  // New scoring per user's requested weights:
+  // - Profile completeness: 30%
+  // - Skills (having >3 skills): 20%
+  // - Education level: 15%
+  // - Experience level: 15%
+  // - Qualifications match with job(s): 20%
+
   const breakdown = {
     profileCompleteness: 0,
-    skillStrength: 0,
-    experienceMatch: 0,
-    educationMatch: 0,
-    applicationSuccess: 0,
-    extraPoints: 0
+    skills: 0,
+    education: 0,
+    experience: 0,
+    qualificationsMatch: 0
   };
 
-  // 1. Profile Completeness (30% weight)
+  // 1) Profile completeness: reuse enhanced completeness (0-100)
   breakdown.profileCompleteness = calculateEnhancedProfileCompleteness(profile);
 
-  // 2. Skill Strength (25% weight) - Enhanced calculation
-  breakdown.skillStrength = calculateEnhancedSkillStrength(profile);
+  // 2) Skills: normalized score where >=4 skills -> 100, fewer -> scaled
+  const skills = profile.skills || [];
+  if (skills.length >= 4) breakdown.skills = 100;
+  else breakdown.skills = Math.round((skills.length / 4) * 100);
 
-  // 3. Experience Match (20% weight) - More realistic
-  breakdown.experienceMatch = calculateEnhancedExperienceScore(profile);
+  // 3) Education level mapping (scale to 0-100)
+  const EDU_MAP = { 'high-school': 20, 'diploma': 40, 'bachelors': 60, 'masters': 80, 'phd': 95 };
+  breakdown.education = EDU_MAP[profile.educationLevel] || 0;
 
-  // 4. Education Match (15% weight)
-  breakdown.educationMatch = calculateEnhancedEducationScore(profile);
+  // 4) Experience level mapping (entry/mid/senior/executive)
+  const EXP_MAP = { 'entry': 20, 'mid': 50, 'senior': 80, 'executive': 95 };
+  breakdown.experience = EXP_MAP[profile.experienceLevel] || 20;
 
-  // 5. Application Success Rate (10% weight)
-  breakdown.applicationSuccess = calculateEnhancedApplicationSuccess(applications);
+  // 5) Qualifications match with provided jobs: compute average skill overlap % or education match
+  // If no jobs provided, fall back to 50 (neutral)
+  if (!Array.isArray(jobs) || jobs.length === 0) {
+    breakdown.qualificationsMatch = 50;
+  } else {
+    // For each job, compute overlap between profile.skills and job.skills (as a percent)
+    const jobMatches = jobs.map(job => {
+      const jobSkills = (job.skills || job.skillsRequired || []).map(s => (s || '').toString().toLowerCase().trim());
+      if (jobSkills.length === 0) return 0;
+      const overlap = skills.filter(s => jobSkills.includes(s.toLowerCase().trim())).length;
+      return Math.round((overlap / jobSkills.length) * 100);
+    });
+    // average
+    const avgMatch = jobMatches.reduce((a, b) => a + b, 0) / (jobMatches.length || 1);
+    breakdown.qualificationsMatch = Math.round(avgMatch);
+  }
 
-  // 6. Extra Points (not weighted, added to total)
-  breakdown.extraPoints = calculateEnhancedExtraPoints(profile);
-
-  // Calculate AI Match Score (weighted average)
+  // Compose weighted final score
   const weightedScore = (
     (breakdown.profileCompleteness * 0.30) +
-    (breakdown.skillStrength * 0.25) +
-    (breakdown.experienceMatch * 0.20) +
-    (breakdown.educationMatch * 0.15) +
-    (breakdown.applicationSuccess * 0.10)
+    (breakdown.skills * 0.20) +
+    (breakdown.education * 0.15) +
+    (breakdown.experience * 0.15) +
+    (breakdown.qualificationsMatch * 0.20)
   );
 
-  // Add extra points (max 10 points)
-  const aiMatchScore = Math.min(100, Math.round(weightedScore + (breakdown.extraPoints * 0.1)));
+  const aiMatchScore = Math.min(100, Math.round(weightedScore));
+
+  // Strengths & improvements derived simplistically from breakdown
+  const strengths = [];
+  const improvements = [];
+
+  if (breakdown.profileCompleteness >= 80) strengths.push('Profile completeness');
+  if (breakdown.skills >= 75) strengths.push('Skills breadth');
+  if (breakdown.experience >= 70) strengths.push('Relevant experience');
+  if (breakdown.education >= 70) strengths.push('Education level');
+
+  if (breakdown.profileCompleteness < 80) improvements.push('Complete your profile: add bio, documents, and links');
+  if (breakdown.skills < 50) improvements.push('Add more skills (aim for at least 4 relevant skills)');
+  if (breakdown.experience < 50) improvements.push('Gain more hands-on experience or highlight projects');
+  if (breakdown.education < 50) improvements.push('Consider further relevant certifications or education');
+  if (breakdown.qualificationsMatch < 50) improvements.push('Improve skills that appear frequently in job listings you want');
+
+  // Determine proficiency level based on overall score
+  let proficiencyLevel = 'Beginner';
+  if (aiMatchScore >= 80) proficiencyLevel = 'Expert';
+  else if (aiMatchScore >= 65) proficiencyLevel = 'Advanced';
+  else if (aiMatchScore >= 50) proficiencyLevel = 'Intermediate';
 
   return {
     aiMatchScore,
+    proficiencyLevel,
     breakdown,
-    strengths: generateStrengths(profile, breakdown),
-    improvementAreas: generateImprovementAreas(profile, breakdown)
+    strengths: strengths.slice(0, 4),
+    improvementAreas: improvements.slice(0, 4)
   };
 };
 

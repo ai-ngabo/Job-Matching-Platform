@@ -52,11 +52,12 @@ const Register = () => {
         throw new Error('No credential received from Google');
       }
 
-      console.log('✅ Google Sign-In successful, sending token to backend...');
+      console.log('✅ Google Sign-In successful, sending token to backend for registration...');
       
-      // Send token to backend for verification
-      const res = await api.post('/auth/google-login', {
-        token: response.credential
+      // Send token to backend for verification & registration with selected userType
+      const res = await api.post('/auth/google-register', {
+        token: response.credential,
+        userType: formData.userType || 'jobseeker'
       });
 
       const data = res.data;
@@ -90,7 +91,7 @@ const Register = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, formData.userType]);
 
   // Initialize Google SDK
   useEffect(() => {

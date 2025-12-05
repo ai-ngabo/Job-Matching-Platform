@@ -161,6 +161,24 @@
   height: 16px;
 }
 
+.view-action-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.view-action-btn:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+}
+
 @media (max-width: 768px) {
   .companies-header {
     flex-direction: column;

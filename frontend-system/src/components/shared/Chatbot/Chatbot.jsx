@@ -22,7 +22,9 @@ const Chatbot = () => {
     { label: "💻 Tech Jobs", action: "tech_jobs", icon: "⚡" },
     { label: "🚀 Career Advice", action: "career_guidance", icon: "🎯" },
     { label: "🎤 Interview Prep", action: "interview_prep", icon: "💼" },
-    { label: "📊 Salary Tips", action: "salary_advice", icon: "💰" }
+    { label: "📊 Salary Tips", action: "salary_advice", icon: "💰" },
+    { label: "🏆 Most Paying Fields", action: "most_paying_fields", icon: "📈" },
+    { label: "🛠️ How to Get a Job", action: "how_to_get_job", icon: "✅" }
   ]);
 
   useEffect(() => {
@@ -179,7 +181,7 @@ const Chatbot = () => {
           </div>
           <div>
             <h3>JobIFY AI Assistant</h3>
-            <p className="chatbot-status">Powered by DeepSeek</p>
+            <p className="chatbot-status">Powered by JobIFY AI — deterministic templates with LLM fallback</p>
           </div>
         </div>
         <div className="chatbot-header-actions">

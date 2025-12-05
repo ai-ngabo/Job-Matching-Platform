@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Building2, CheckCircle, Clock, XCircle, Eye } from 'lucide-react';
 import './AllCompanies.css';
+import UserDetailModal from './UserDetailModal';
 
 const AllCompanies = () => {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
     fetchAllCompanies();
@@ -122,6 +124,7 @@ const AllCompanies = () => {
                 <th>Industry</th>
                 <th>Status</th>
                 <th>Registered</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -142,11 +145,28 @@ const AllCompanies = () => {
                     </span>
                   </td>
                   <td>{new Date(company.createdAt).toLocaleDateString()}</td>
+                  <td>
+                    <button
+                      className="view-action-btn"
+                      onClick={() => setSelectedUser(company)}
+                      title="View all details"
+                    >
+                      <Eye size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {selectedUser && (
+        <UserDetailModal
+          user={selectedUser}
+          userType="company"
+          onClose={() => setSelectedUser(null)}
+        />
       )}
     </div>
   );
