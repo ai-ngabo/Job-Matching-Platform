@@ -20,6 +20,8 @@ import chatbotRoutes from './routes/chatbot.js';
 import aiRoutes from './routes/ai.js';
 import testEmailRoutes from './routes/test-email.js';
 import contactRoutes from './routes/contact.js';
+import emailHealthRoutes from './routes/email-health.js';
+import emailQueueRoutes from './routes/email-queue.js';
 import { initializeEmailServiceOnStartup } from './utils/emailService.js';
 
 const app = express();
@@ -94,6 +96,8 @@ app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/test-email', testEmailRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/email-health', emailHealthRoutes);
+app.use('/api/email-queue', emailQueueRoutes);
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/job-platform-rwanda')

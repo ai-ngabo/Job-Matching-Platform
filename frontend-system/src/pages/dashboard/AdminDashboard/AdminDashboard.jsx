@@ -16,8 +16,10 @@ import {
   Trash2,
   Shield,
   RefreshCw,
-  LogOut
+  LogOut,
+  Mail
 } from 'lucide-react';
+import EmailQueuePanel from './EmailQueuePanel';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
@@ -470,6 +472,13 @@ const AdminDashboard = () => {
           <Briefcase size={18} />
           Jobs ({stats?.totalJobs || 0})
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'emails' ? 'active' : ''}`}
+          onClick={() => setActiveTab('emails')}
+        >
+          <Mail size={18} />
+          Emails
+        </button>
       </div>
 
       {/* Search */}
@@ -615,6 +624,16 @@ const AdminDashboard = () => {
             )}
           </div>
         )}
+
+        {/* Emails (Email Queue / Contact) */}
+        {activeTab === 'emails' && (
+          <div className="emails-section">
+            <h2>Email Queue & Contact</h2>
+            <p style={{ marginBottom: 8 }}>View queued emails (including failed contact messages and application status emails). Use the admin token below to access the protected queue endpoints.</p>
+            <EmailQueuePanel />
+          </div>
+        )}
+
       </div>
 
       {/* Modal */}

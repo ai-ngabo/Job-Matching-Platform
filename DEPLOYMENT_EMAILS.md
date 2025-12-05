@@ -38,6 +38,13 @@ This script attempts to forward a small contact-form-style message to `CONTACT_E
 - Ensure SendGrid key is valid and has Mail Send permissions.
 - For SMTP, verify port and app password, and ensure the hosting provider allows outbound SMTP.
 
+## Optional: Persistent email queue (recommended for reliability)
+- The backend now includes a Mongo-backed email queue that will persist failed messages and retry them automatically.
+- Configurable environment variables:
+  - `EMAIL_QUEUE_POLL_MS` (milliseconds between queue polls, default: 30000)
+  - `EMAIL_QUEUE_CONCURRENCY` (parallel sends, default: 3)
+- The queue will capture failures and retry with exponential backoff (capped at 1 hour). It runs automatically when the server starts and MongoDB is available.
+
 ## Summary
 - Recommended: Configure `SENDGRID_API_KEY` on Render for robust, API-based email delivery.
 - Fallback: SMTP is still supported if env vars are set, but may be blocked by hosting networks.

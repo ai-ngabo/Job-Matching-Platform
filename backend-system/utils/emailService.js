@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import sgMail from '@sendgrid/mail';
+import EmailQueue from '../models/EmailQueue.js';
 
 let transporter = null;
 let isInitialized = false;
@@ -90,6 +91,8 @@ const initializeEmailService = () => {
 // Export initialization function for startup
 export const initializeEmailServiceOnStartup = () => {
   initializeEmailService();
+  // Start background worker to process queued emails
+  startQueueWorkerIfNeeded();
 };
 
 const sendEmail = async ({ to, subject, html }) => {
@@ -166,7 +169,23 @@ const sendEmail = async ({ to, subject, html }) => {
         }
       }
 
-      // Propagate the original SMTP error so callers can handle/log if needed
+      // As a resilience measure, enqueue the failed message to the DB for retry by the background worker
+      try {
+        await EmailQueue.create({
+          to,
+          from: msg.from,
+          subject: msg.subject,
+          html: msg.html,
+          attempts: 1,
+          status: 'pending',
+          nextAttemptAt: new Date(Date.now() + 60 * 1000) // retry after 1 minute
+        });
+        console.log(`🔁 Enqueued email to ${to} for later retry`);
+      } catch (queueErr) {
+        console.error('❌ Failed to enqueue email for retry:', queueErr?.message || queueErr);
+      }
+
+      // Propagate the original SMTP error to caller as well
       throw smtpError;
     }
   }
@@ -178,6 +197,76 @@ const sendEmail = async ({ to, subject, html }) => {
   console.warn(`   - SMTP_USER: ${process.env.SMTP_USER ? '✅' : '❌'}`);
   console.warn(`   - SMTP_PASS: ${process.env.SMTP_PASS ? '✅' : '❌'}`);
   return;
+};
+
+// Background worker to process queued emails
+let queueWorkerStarted = false;
+const processQueuedEmails = async () => {
+  if (queueWorkerStarted) return;
+  queueWorkerStarted = true;
+
+  const concurrency = Number(process.env.EMAIL_QUEUE_CONCURRENCY || 3);
+  const pollIntervalMs = Number(process.env.EMAIL_QUEUE_POLL_MS || 30 * 1000);
+
+  console.log(`📮 Starting email queue worker (poll ${pollIntervalMs}ms, concurrency ${concurrency})`);
+
+  const runIteration = async () => {
+    try {
+      const now = new Date();
+      const items = await EmailQueue.find({ status: 'pending', nextAttemptAt: { $lte: now } }).limit(concurrency).sort({ nextAttemptAt: 1 }).lean();
+      for (const item of items) {
+        try {
+          // Mark processing
+          await EmailQueue.findByIdAndUpdate(item._id, { status: 'processing', lastAttemptAt: new Date() });
+
+          // Attempt to send using same sendEmail flow but bypassing enqueue-on-fail to avoid recursion
+          try {
+            // Try SendGrid first if enabled
+            if (process.env.SENDGRID_API_KEY) {
+              sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+              await sgMail.send({ to: item.to, from: item.from || getFromAddress(), subject: item.subject, html: item.html });
+              await EmailQueue.findByIdAndUpdate(item._id, { status: 'sent' });
+              console.log(`✅ Queued email sent to ${item.to} (id: ${item._id}) via SendGrid`);
+              continue;
+            }
+
+            if (transporter) {
+              await transporter.sendMail({ from: item.from || getFromAddress(), to: item.to, subject: item.subject, html: item.html });
+              await EmailQueue.findByIdAndUpdate(item._id, { status: 'sent' });
+              console.log(`✅ Queued email sent to ${item.to} (id: ${item._id}) via SMTP`);
+              continue;
+            }
+
+            // If no transport available, mark failed
+            await EmailQueue.findByIdAndUpdate(item._id, { status: 'failed', lastError: 'no transport available' });
+          } catch (sendErr) {
+            const attempts = (item.attempts || 0) + 1;
+            const backoffMs = Math.min(60 * 60 * 1000, Math.pow(2, attempts) * 1000); // cap at 1h
+            await EmailQueue.findByIdAndUpdate(item._id, { status: 'pending', attempts, lastError: sendErr?.message || String(sendErr), nextAttemptAt: new Date(Date.now() + backoffMs) });
+            console.warn(`⚠️ Queued email attempt ${attempts} failed for ${item.to}. Next attempt in ${backoffMs}ms`);
+          }
+        } catch (err) {
+          console.error('❌ Error processing queued email item:', err);
+        }
+      }
+    } catch (err) {
+      console.error('❌ Email queue worker error:', err);
+    } finally {
+      setTimeout(runIteration, pollIntervalMs);
+    }
+  };
+
+  // Start the loop
+  setImmediate(runIteration);
+};
+
+// Start queue worker when email service initializes (non-blocking)
+const startQueueWorkerIfNeeded = () => {
+  try {
+    processQueuedEmails();
+  } catch (err) {
+    console.error('❌ Failed to start email queue worker:', err);
+  }
 };
 
 const buildRegistrationHtml = ({ firstName, userType, companyName }) => {
@@ -746,4 +835,40 @@ export const sendContactMessage = async ({ firstName, lastName, fromEmail, conta
     console.error('❌ Failed to forward contact form:', error.message);
     throw error;
   }
+};
+
+// Verify transports programmatically. Will attempt SendGrid if API key present; otherwise verify SMTP transporter.
+export const verifyEmailTransport = async ({ to } = {}) => {
+  initializeEmailService();
+
+  const target = to || process.env.CONTACT_EMAIL || process.env.ADMIN_ALERT_EMAIL || process.env.TEST_EMAIL;
+
+  // If SendGrid key present, try sending a small verification email (lightweight)
+  if (process.env.SENDGRID_API_KEY) {
+    try {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      const sgMsg = {
+        to: target,
+        from: getFromAddress(),
+        subject: 'JobIFY — Email transport verification',
+        html: `<p>This is a test verification email sent at ${new Date().toISOString()}.</p>`
+      };
+      const res = await sgMail.send(sgMsg);
+      return { ok: true, transport: 'sendgrid', detail: res };
+    } catch (err) {
+      return { ok: false, transport: 'sendgrid', error: err?.message || err };
+    }
+  }
+
+  // Otherwise try SMTP transporter verify
+  if (transporter) {
+    try {
+      await transporter.verify();
+      return { ok: true, transport: 'smtp', detail: 'smtp verified' };
+    } catch (err) {
+      return { ok: false, transport: 'smtp', error: err?.message || err };
+    }
+  }
+
+  return { ok: false, transport: 'none', error: 'no transport configured' };
 };
