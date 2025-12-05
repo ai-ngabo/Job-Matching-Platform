@@ -22,6 +22,8 @@ const JobListings = () => {
   const jobTypes = ['full-time', 'part-time', 'contract', 'internship', 'remote'];
   const categories = ['technology', 'business', 'healthcare', 'education', 'engineering', 'design', 'marketing', 'sales', 'customer-service'];
   const [matchScoreByJob, setMatchScoreByJob] = useState({}); // Stable AI match scores per job for this user
+  const [matchBreakdownByJob, setMatchBreakdownByJob] = useState({});
+  const [openBreakdownId, setOpenBreakdownId] = useState(null);
 
   // Fetch real jobs from API
   useEffect(() => {
@@ -91,9 +93,10 @@ const JobListings = () => {
         views: job.views || 0,
         applications: job.applicationCount || 0,
         // Stable AI match score per job for this user (from /jobs/recommended)
-        matchScore: typeof matchScoreByJob[job._id] === 'number' && matchScoreByJob[job._id] >= 40
-          ? matchScoreByJob[job._id]
-          : null
+        // Prefer server-provided job.matchScore (API /api/jobs now returns per-job matchScore when auth present)
+        matchScore: typeof job.matchScore === 'number'
+          ? job.matchScore
+          : (typeof matchScoreByJob[job._id] === 'number' ? matchScoreByJob[job._id] : null)
       }));
 
       setJobs(transformedJobs);
@@ -163,8 +166,43 @@ const JobListings = () => {
     if (typeof score !== 'number' || score === null) return null;
 
     return (
-      <span className="tag match" role="status" aria-label={`${score}% match`}>{display}% Match</span>
+      <button
+        className="tag match"
+        role="button"
+        aria-label={`${score}% match - click for breakdown`}
+        onClick={async (e) => {
+          e.stopPropagation();
+          // parent will set which id is opening; but here we optimistically toggle based on job id carried via dataset
+          const jobId = e.currentTarget.closest('[data-job-id]')?.getAttribute('data-job-id');
+          if (!jobId) return;
+          if (openBreakdownId === jobId) {
+            setOpenBreakdownId(null);
+            return;
+          }
+          // fetch breakdown if needed
+          await fetchMatchBreakdown(jobId);
+          setOpenBreakdownId(jobId);
+        }}
+      >{display}% Match</button>
     );
+  };
+
+  // Fetch detailed breakdown for a specific job (cached)
+  const fetchMatchBreakdown = async (jobId) => {
+    if (!jobId) return null;
+    if (matchBreakdownByJob[jobId]) return matchBreakdownByJob[jobId];
+
+    try {
+      const res = await api.get(`/ai/match-score/${jobId}`);
+      const payload = res.data || {};
+      const breakdown = payload.matchBreakdown || payload.breakdown || payload;
+      setMatchBreakdownByJob(prev => ({ ...prev, [jobId]: breakdown }));
+      return breakdown;
+    } catch (err) {
+      console.error('Error fetching match breakdown for', jobId, err);
+      setMatchBreakdownByJob(prev => ({ ...prev, [jobId]: null }));
+      return null;
+    }
   };
 
   // Filter jobs based on multi-field search and filters (name, company, field, skills, job type, location)
@@ -295,7 +333,7 @@ const JobListings = () => {
       {!loading && !error && filteredJobs.length > 0 && (
         <div className="jobs-grid">
           {filteredJobs.map(job => (
-            <div key={job._id} className="job-card">
+            <div key={job._id} className="job-card" data-job-id={job._id}>
               {/* Card Header */}
               <div className="card-header">
                 <div className="logo-wrapper">
@@ -343,7 +381,20 @@ const JobListings = () => {
 
                 {/* Floating animated match badge (rendered outside meta-tags to float top-right) */}
                 {typeof job.matchScore === 'number' && (
-                  <AnimatedMatch score={job.matchScore} />
+                  <div style={{ position: 'absolute', top: 12, right: 12 }}>
+                    <AnimatedMatch score={job.matchScore} />
+                  </div>
+                )}
+
+                {/* Match breakdown - shown when user expands the badge */}
+                {openBreakdownId === job._id && matchBreakdownByJob[job._id] && (
+                  <div className="match-breakdown">
+                    <div><strong>Match breakdown</strong></div>
+                    <div>Profile: {matchBreakdownByJob[job._id].profile ?? matchBreakdownByJob[job._id].profileScore ?? '-'}</div>
+                    <div>Skills: {matchBreakdownByJob[job._id].skills ?? matchBreakdownByJob[job._id].skillsScore ?? '-'}</div>
+                    <div>Education: {matchBreakdownByJob[job._id].education ?? matchBreakdownByJob[job._id].educationScore ?? '-'}</div>
+                    <div>Experience: {matchBreakdownByJob[job._id].experience ?? matchBreakdownByJob[job._id].experienceScore ?? '-'}</div>
+                  </div>
                 )}
 
                 {/* Description Preview */}
