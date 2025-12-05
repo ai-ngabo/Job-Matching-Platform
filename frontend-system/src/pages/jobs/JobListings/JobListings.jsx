@@ -195,7 +195,16 @@ const JobListings = () => {
     try {
       const res = await api.get(`/ai/match-score/${jobId}`);
       const payload = res.data || {};
-      const breakdown = payload.matchBreakdown || payload.breakdown || payload;
+      // Normalize breakdown to known shape
+      const raw = payload.matchBreakdown || payload.breakdown || payload || {};
+      const breakdown = {
+        profile: raw.profileScore ?? raw.profile ?? raw.profile_match ?? 0,
+        skills: raw.skillsScore ?? raw.skills ?? raw.skills_match ?? 0,
+        education: raw.educationScore ?? raw.education ?? raw.education_match ?? 0,
+        experience: raw.experienceScore ?? raw.experience ?? raw.experience_match ?? 0,
+        qualifications: raw.qualificationsScore ?? raw.qualifications ?? raw.qualifications_match ?? 0
+      };
+
       setMatchBreakdownByJob(prev => ({ ...prev, [jobId]: breakdown }));
       return breakdown;
     } catch (err) {
@@ -388,12 +397,22 @@ const JobListings = () => {
 
                 {/* Match breakdown - shown when user expands the badge */}
                 {openBreakdownId === job._id && matchBreakdownByJob[job._id] && (
-                  <div className="match-breakdown">
-                    <div><strong>Match breakdown</strong></div>
-                    <div>Profile: {matchBreakdownByJob[job._id].profile ?? matchBreakdownByJob[job._id].profileScore ?? '-'}</div>
-                    <div>Skills: {matchBreakdownByJob[job._id].skills ?? matchBreakdownByJob[job._id].skillsScore ?? '-'}</div>
-                    <div>Education: {matchBreakdownByJob[job._id].education ?? matchBreakdownByJob[job._id].educationScore ?? '-'}</div>
-                    <div>Experience: {matchBreakdownByJob[job._id].experience ?? matchBreakdownByJob[job._id].experienceScore ?? '-'}</div>
+                  <div className="match-breakdown" role="dialog" aria-label="Match breakdown">
+                    <button className="close-btn" aria-label="Close" onClick={() => setOpenBreakdownId(null)}>✕</button>
+                    <h4>Match breakdown</h4>
+                    {['profile','skills','education','experience','qualifications'].map(key => {
+                      const val = matchBreakdownByJob[job._id]?.[key];
+                      const pct = typeof val === 'number' ? Math.max(0, Math.min(100, Math.round(val))) : 0;
+                      return (
+                        <div className="break-item" key={key}>
+                          <div className="break-label">{key.charAt(0).toUpperCase() + key.slice(1)}</div>
+                          <div className="progress" aria-hidden>
+                            <i style={{ width: pct + '%' }} />
+                          </div>
+                          <div className="break-score">{pct}%</div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
