@@ -3,6 +3,7 @@ import Job from '../models/Job.js';
 import auth from '../middleware/auth.js';
 import User from '../models/User.js';
 import { calculateQualificationScore } from '../utils/aiUtils.js';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
@@ -91,11 +92,43 @@ router.get('/', async (req, res) => {
       .select('-requirements')
       .populate('company', 'company.name company.industry company.logo');
 
+    // If the request contains a valid JWT for a jobseeker, compute per-job match scores
+    let requestingUser = null;
+    try {
+      const authHeader = req.header('Authorization');
+      const token = authHeader?.replace('Bearer ', '')?.trim();
+      if (token && token !== 'null' && token !== 'undefined' && process.env.JWT_SECRET) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Load minimal user info for scoring
+        requestingUser = await User.findById(decoded.userId).select('userType profile');
+      }
+    } catch (err) {
+      // If token invalid, ignore scoring and continue as public
+      console.warn('Optional auth token invalid or missing for /api/jobs; returning public listing');
+      requestingUser = null;
+    }
+
     const total = await Job.countDocuments(filter);
+
+    // If we have a requesting jobseeker, compute matchScore per job
+    let jobsToReturn = jobs;
+    if (requestingUser && requestingUser.userType === 'jobseeker') {
+      jobsToReturn = jobs.map(job => {
+        try {
+          const score = Math.round(calculateQualificationScore(requestingUser, job));
+          return { ...job.toObject(), matchScore: score };
+        } catch (err) {
+          console.error('Error calculating match score for job', job._id, err.message);
+          return { ...job.toObject(), matchScore: null };
+        }
+      });
+    } else {
+      jobsToReturn = jobs.map(j => j.toObject());
+    }
 
     res.json({
       message: 'Jobs retrieved successfully',
-      jobs,
+      jobs: jobsToReturn,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
@@ -147,7 +180,15 @@ router.get('/saved', auth, async (req, res) => {
     
     res.json({
       message: 'Saved jobs retrieved successfully',
-      savedJobs: user.savedJobs || []
+      savedJobs: (user.savedJobs || []).map(job => {
+        try {
+          const score = Math.round(calculateQualificationScore(req.user, job));
+          return { ...job.toObject(), matchScore: score };
+        } catch (err) {
+          console.error('Error calculating match score for saved job', job._id, err.message);
+          return { ...job.toObject(), matchScore: null };
+        }
+      })
     });
   } catch (error) {
     console.error('Get saved jobs error:', error);
