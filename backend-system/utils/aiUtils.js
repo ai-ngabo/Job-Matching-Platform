@@ -3,15 +3,15 @@ export const calculateQualificationScore = (applicant, job) => {
   let score = 0;
 
   // Skills match (40 points)
-  if (applicant.profile?.skills && job.requiredSkills) {
+  if (applicant.profile?.skills && job.skillsRequired && job.skillsRequired.length > 0) {
     const applicantSkills = applicant.profile.skills.map(s => s.toLowerCase());
-    const requiredSkills = job.requiredSkills.map(s => s.toLowerCase());
+    const requiredSkills = job.skillsRequired.map(s => s.toLowerCase());
     const matchedSkills = applicantSkills.filter(skill => 
       requiredSkills.some(req => req.includes(skill) || skill.includes(req))
     );
     const skillScore = (matchedSkills.length / (requiredSkills.length || 1)) * 40;
     score += skillScore;
-  } else if (job.requiredSkills) {
+  } else if (job.skillsRequired && job.skillsRequired.length > 0) {
     score += 0;
   } else {
     score += 40;
@@ -66,12 +66,12 @@ export const calculateQualificationScore = (applicant, job) => {
 };
 
 export const calculateSkillsMatch = (applicant, job) => {
-  if (!applicant.profile?.skills || !job.requiredSkills || job.requiredSkills.length === 0) {
+  if (!applicant.profile?.skills || !job.skillsRequired || job.skillsRequired.length === 0) {
     return 0;
   }
 
   const applicantSkills = applicant.profile.skills.map(s => s.toLowerCase());
-  const requiredSkills = job.requiredSkills.map(s => s.toLowerCase());
+  const requiredSkills = job.skillsRequired.map(s => s.toLowerCase());
   
   const matchedSkills = applicantSkills.filter(skill => 
     requiredSkills.some(req => req.includes(skill) || skill.includes(req))

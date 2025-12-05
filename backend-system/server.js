@@ -30,7 +30,10 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5173',
+      'http://localhost:4173',
       'https://jobify-rw.vercel.app',                            // Custom Vercel domain
+      'https://job-matching-platform.vercel.app',                // Vercel main domain
+      'https://jobify.vercel.app',                               // Alternative Vercel domain
       process.env.FRONTEND_URL                                   // Environment variable
     ].filter(url => url && url.length > 0);
     
@@ -49,6 +52,11 @@ const corsOptions = {
     
     // Allow all vercel.app domains (for preview deployments)
     if (origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+    
+    // Allow all localhost variants
+    if (origin.includes('localhost')) {
       return callback(null, true);
     }
     
