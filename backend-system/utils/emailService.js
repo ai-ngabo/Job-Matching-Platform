@@ -120,8 +120,15 @@ const sendEmail = async ({ to, subject, html }) => {
   if (sendGridEnabled) {
     try {
       const sendViaSendGrid = async () => {
-        // SendGrid supports array or single recipient; keep single for now
-        const sgMsg = { to, from: msg.from, subject: msg.subject, html: msg.html };
+        // SendGrid requires proper message object with text or html
+        const sgMsg = {
+          to,
+          from: msg.from,
+          subject: msg.subject,
+          html: msg.html,
+          text: msg.html?.replace(/<[^>]*>/g, '') || 'Email from JobIFY' // Strip HTML for text version
+        };
+        console.log('📤 Sending via SendGrid with message:', { to, subject: sgMsg.subject, from: sgMsg.from });
         const res = await sgMail.send(sgMsg);
         return res;
       };
@@ -131,6 +138,9 @@ const sendEmail = async ({ to, subject, html }) => {
       return info;
     } catch (sgError) {
       console.error('❌ SendGrid send failed:', sgError?.message || sgError);
+      if (sgError.response?.body?.errors) {
+        console.error('   Errors:', sgError.response.body.errors);
+      }
       // Fall through to try SMTP if available
     }
   }
@@ -160,7 +170,13 @@ const sendEmail = async ({ to, subject, html }) => {
         try {
           sgMail.setApiKey(process.env.SENDGRID_API_KEY);
           sendGridEnabled = true;
-          const sgMsg = { to, from: msg.from, subject: msg.subject, html: msg.html };
+          const sgMsg = {
+            to,
+            from: msg.from,
+            subject: msg.subject,
+            html: msg.html,
+            text: msg.html?.replace(/<[^>]*>/g, '') || 'Email from JobIFY'
+          };
           const sgRes = await retryWithBackoff(() => sgMail.send(sgMsg));
           console.log(`✅ SendGrid (fallback) email sent to ${to}`);
           return sgRes;
