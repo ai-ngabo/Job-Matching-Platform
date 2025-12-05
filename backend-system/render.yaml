@@ -1,0 +1,66 @@
+# Render service manifest for the backend (edit values before use)
+# Documentation: https://render.com/docs/render-manifest
+
+services:
+  - type: web
+    name: job-matching-platform-backend
+    env: production
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: "npm install && npm run build || true"
+    startCommand: "npm start"
+    envVars:
+      - key: SENDGRID_API_KEY
+        value: "<REPLACE-WITH-SENDGRID-KEY>"
+        isSecure: true
+      - key: SMTP_HOST
+        value: "smtp.gmail.com"
+        isSecure: false
+      - key: SMTP_PORT
+        value: "587"
+        isSecure: false
+      - key: SMTP_USER
+        value: "<your-smtp-user@example.com>"
+        isSecure: true
+      - key: SMTP_PASS
+        value: "<your-smtp-password-or-app-password>"
+        isSecure: true
+      - key: SMTP_FROM
+        value: "JobIFY <no-reply@jobify.rw>"
+        isSecure: false
+      - key: SMTP_CONNECTION_TIMEOUT
+        value: "20000"
+        isSecure: false
+      - key: SMTP_GREETING_TIMEOUT
+        value: "20000"
+        isSecure: false
+      - key: SMTP_SOCKET_TIMEOUT
+        value: "20000"
+        isSecure: false
+      - key: CONTACT_EMAIL
+        value: "jobifyrwanda@gmail.com"
+        isSecure: false
+      - key: ADMIN_ALERT_EMAIL
+        value: "admin@yourdomain.tld"
+        isSecure: false
+      - key: FRONTEND_URL
+        value: "https://jobify-rw.vercel.app"
+        isSecure: false
+      - key: NODE_ENV
+        value: "production"
+        isSecure: false
+      - key: PORT
+        value: "5000"
+        isSecure: false
+      - key: MONGODB_URI
+        value: "<REPLACE-WITH-MONGODB-URI>"
+        isSecure: true
+      - key: JWT_SECRET
+        value: "<REPLACE-WITH-JWT-SECRET>"
+        isSecure: true
+
+# Note: isSecure=true marks values as secrets in Render; replace placeholders before pushing.
+# After adding this file, commit and push to GitHub. If your Render service is connected to this repo
+# and set to auto-deploy from branch `main`, Render will pick up the manifest and environment values.
+# Alternatively, open your Render Dashboard -> Service -> Environment and paste the values manually.

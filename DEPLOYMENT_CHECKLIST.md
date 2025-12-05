@@ -399,6 +399,8 @@ For issues or questions:
 2. Review CODE_CHANGES_REFERENCE.md for technical details
 3. See JOBLISTINGS_ENHANCEMENT_COMPLETE.md for full documentation
 
+4. See DEPLOYMENT_EMAILS.md for production email delivery configuration and verification
+
 **Support Available**: 24/7 for critical issues
 **Expected Downtime**: None (zero-downtime deployment possible)
 

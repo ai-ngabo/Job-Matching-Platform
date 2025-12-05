@@ -1,7 +1,9 @@
 import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
 let transporter = null;
 let isInitialized = false;
+let sendGridEnabled = false;
 
 const getFromAddress = () => process.env.SMTP_FROM || 'JobIFY <no-reply@jobify.rw>';
 const getAdminAlertEmail = () => process.env.ADMIN_ALERT_EMAIL || '';
@@ -14,6 +16,18 @@ const initializeEmailService = () => {
     !!process.env.SMTP_USER &&
     !!process.env.SMTP_PASS;
 
+  // Configure SendGrid if API key provided
+  if (process.env.SENDGRID_API_KEY) {
+    try {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      sendGridEnabled = true;
+      console.log('📬 SendGrid enabled (API) for transactional emails');
+    } catch (err) {
+      console.warn('⚠️  SendGrid initialization failed:', err?.message || err);
+      sendGridEnabled = false;
+    }
+  }
+
   if (isEmailConfigured) {
     const smtpPort = Number(process.env.SMTP_PORT || 587);
     const isSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
@@ -25,6 +39,7 @@ const initializeEmailService = () => {
     console.log(`   Secure (TLS): ${isSecure}`);
     console.log(`   From: ${getFromAddress()}`);
 
+    // Increase timeouts slightly to avoid short-lived network blips causing ETIMEDOUT
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: smtpPort,
@@ -37,9 +52,13 @@ const initializeEmailService = () => {
         rejectUnauthorized: false
       },
       requireTLS: !isSecure && smtpPort === 587,
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 5000
+      // timeouts (ms) - increased to be more tolerant on cloud hosts
+      connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 20000),
+      greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 20000),
+      socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 20000),
+      // small pool to avoid saturating provider connections
+      maxConnections: Number(process.env.SMTP_MAX_CONNECTIONS || 5),
+      maxMessages: Number(process.env.SMTP_MAX_MESSAGES || 100)
     });
 
     // Verify connection asynchronously in background (non-blocking, fire-and-forget)
@@ -76,37 +95,89 @@ export const initializeEmailServiceOnStartup = () => {
 const sendEmail = async ({ to, subject, html }) => {
   initializeEmailService();
 
-  if (!transporter) {
-    console.warn(`📭 Email skipped (transporter unavailable). Intended recipient: ${to}`);
-    console.warn(`📭 Email Configuration Status:`);
-    console.warn(`   - SMTP_HOST: ${process.env.SMTP_HOST ? '✅' : '❌'}`);
-    console.warn(`   - SMTP_USER: ${process.env.SMTP_USER ? '✅' : '❌'}`);
-    console.warn(`   - SMTP_PASS: ${process.env.SMTP_PASS ? '✅ (hidden)' : '❌'}`);
-    return;
+  const msg = { from: getFromAddress(), to, subject, html };
+
+  // Helper: exponential backoff retry
+  const retryWithBackoff = async (fn, attempts = 3) => {
+    let lastError;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn();
+      } catch (err) {
+        lastError = err;
+        const delay = Math.pow(2, i) * 500; // 500ms, 1000ms, 2000ms
+        console.warn(`⚠️ Email attempt ${i + 1} failed. Retrying in ${delay}ms...`, err?.message || err);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+    throw lastError;
+  };
+
+  // If SendGrid is enabled, prefer it (HTTP-based, less likely to be blocked on hosted platforms)
+  if (sendGridEnabled) {
+    try {
+      const sendViaSendGrid = async () => {
+        // SendGrid supports array or single recipient; keep single for now
+        const sgMsg = { to, from: msg.from, subject: msg.subject, html: msg.html };
+        const res = await sgMail.send(sgMsg);
+        return res;
+      };
+
+      const info = await retryWithBackoff(sendViaSendGrid);
+      console.log(`✅ SendGrid email sent to ${to}`);
+      return info;
+    } catch (sgError) {
+      console.error('❌ SendGrid send failed:', sgError?.message || sgError);
+      // Fall through to try SMTP if available
+    }
   }
 
-  try {
-    const info = await transporter.sendMail({
-      from: getFromAddress(),
-      to,
-      subject,
-      html
-    });
+  // Attempt via SMTP if transporter available
+  if (transporter) {
+    try {
+      const sendViaSMTP = async () => {
+        const info = await transporter.sendMail(msg);
+        return info;
+      };
 
-    console.log(`✅ Email sent successfully to ${to}`);
-    console.log(`   📧 Subject: ${subject}`);
-    console.log(`   🔑 Message ID: ${info.messageId}`);
-    console.log(`   📬 Response: ${info.response}`);
-    return info;
-  } catch (error) {
-    console.error(`❌ Failed to send email to ${to}`);
-    console.error(`   📧 Subject: ${subject}`);
-    console.error(`   ⚠️  Error Code: ${error.code}`);
-    console.error(`   ⚠️  Error Message: ${error.message}`);
-    console.error(`   ⚠️  Full Error:`, error);
-    // Don't throw - allow the application to continue even if email fails
-    throw error;
+      const info = await retryWithBackoff(sendViaSMTP);
+      console.log(`✅ SMTP email sent successfully to ${to}`);
+      console.log(`   📧 Subject: ${subject}`);
+      console.log(`   🔑 Message ID: ${info.messageId}`);
+      console.log(`   📬 Response: ${info.response}`);
+      return info;
+    } catch (smtpError) {
+      console.error(`❌ Failed to send email via SMTP to ${to}`);
+      console.error(`   📧 Subject: ${subject}`);
+      console.error(`   ⚠️  Error Code: ${smtpError.code}`);
+      console.error(`   ⚠️  Error Message: ${smtpError.message}`);
+      console.error(`   ⚠️  Full Error:`, smtpError);
+      // If SendGrid wasn't used earlier and is available, try it now as a last resort
+      if (!sendGridEnabled && process.env.SENDGRID_API_KEY) {
+        try {
+          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+          sendGridEnabled = true;
+          const sgMsg = { to, from: msg.from, subject: msg.subject, html: msg.html };
+          const sgRes = await retryWithBackoff(() => sgMail.send(sgMsg));
+          console.log(`✅ SendGrid (fallback) email sent to ${to}`);
+          return sgRes;
+        } catch (sgFallbackError) {
+          console.error('❌ SendGrid fallback also failed:', sgFallbackError?.message || sgFallbackError);
+        }
+      }
+
+      // Propagate the original SMTP error so callers can handle/log if needed
+      throw smtpError;
+    }
   }
+
+  // If neither SendGrid nor SMTP is available
+  console.warn(`📭 Email skipped (no available transport). Intended recipient: ${to}`);
+  console.warn(`   - SENDGRID: ${sendGridEnabled ? '✅' : '❌'}`);
+  console.warn(`   - SMTP_HOST: ${process.env.SMTP_HOST ? '✅' : '❌'}`);
+  console.warn(`   - SMTP_USER: ${process.env.SMTP_USER ? '✅' : '❌'}`);
+  console.warn(`   - SMTP_PASS: ${process.env.SMTP_PASS ? '✅' : '❌'}`);
+  return;
 };
 
 const buildRegistrationHtml = ({ firstName, userType, companyName }) => {
