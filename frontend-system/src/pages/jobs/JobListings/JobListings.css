@@ -142,6 +142,7 @@
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
+  position: relative; /* allow absolute-positioned badges */
 }
 
 .job-card:hover {
@@ -152,10 +153,10 @@
 /* Card Header with Logo */
 .card-header {
   background: linear-gradient(135deg, #0073e6 0%, #9333ea 100%);
-  padding: 1.5rem;
+  padding: 1.25rem 1.25rem 0.9rem 1.25rem;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
   position: relative;
 }
@@ -172,6 +173,7 @@
   border: 2px solid white;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .company-logo {
@@ -179,6 +181,11 @@
   height: 100%;
   object-fit: contain;
   padding: 4px;
+}
+
+.logo-wrapper:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
 }
 
 .logo-placeholder {
@@ -219,6 +226,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  padding-top: 1rem; /* a little tighter spacing under header */
 }
 
 .job-title {
@@ -227,6 +235,10 @@
   color: #111827;
   margin: 0;
   line-height: 1.4;
+}
+
+.company-name {
+  margin-top: 4px;
 }
 
 .company-name {
@@ -287,8 +299,24 @@
 }
 
 .tag.match {
-  background: #fef3c7;
-  color: #92400e;
+  /* Prominent match badge */
+  background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+  color: white;
+  font-weight: 700;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(16,185,129,0.18);
+  font-size: 0.85rem;
+  position: absolute; /* float it over the card */
+  top: 12px;
+  right: 12px;
+}
+
+/* If the tag exists inside meta-tags (non-absolute), ensure it still looks good */
+.meta-tags .tag.match {
+  position: static;
+  box-shadow: none;
+  font-weight: 700;
 }
 
 /* Description */
@@ -359,6 +387,11 @@
   color: #0073e6;
   border: 2px solid #0073e6;
   font-weight: 600;
+}
+
+.action-btn.secondary:hover {
+  background: linear-gradient(135deg, #e6f0ff 0%, #f3e8ff 100%);
+  color: #0b4f9a;
 }
 
 .action-btn.secondary:hover {
