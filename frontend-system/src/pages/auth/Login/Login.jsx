@@ -29,6 +29,7 @@ const Login = () => {
     script.defer = true;
     script.onload = initializeGoogleSDK;
     document.head.appendChild(script);
+     script.nonce = 'google-signin-nonce';
     
     return () => {
       if (document.head.contains(script)) {
