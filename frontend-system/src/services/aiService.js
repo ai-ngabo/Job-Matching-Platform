@@ -1,3 +1,4 @@
+// frontend-system/services/aiService.js
 import api from './api';
 
 export const aiService = {
@@ -32,6 +33,40 @@ export const aiService = {
   async getJobRecommendations(applicationId) {
     const response = await api.get(`/ai/recommendations/${applicationId}`);
     return response.data;
+  },
+
+  // NEW: Get match score for a specific job
+  async getMatchScore(jobId) {
+    const response = await api.get(`/ai/match-score/${jobId}`);
+    return response.data;
+  },
+
+  // NEW: Get comprehensive AI report for job seeker
+  async getJobSeekerReport() {
+    const response = await api.get('/ai/jobseeker-report');
+    return response.data;
+  },
+
+  // NEW: Get recommended jobs with AI scores
+  async getRecommendedJobs(limit = 6) {
+    const response = await api.get(`/jobs/recommended?limit=${limit}`);
+    return response.data;
+  },
+
+  // NEW: Analyze profile and get improvement suggestions
+  async analyzeProfile() {
+    try {
+      const response = await api.get('/ai/analyze-profile');
+      return response.data;
+    } catch (error) {
+      // Fallback if endpoint doesn't exist
+      console.warn('Analyze profile endpoint not available');
+      return {
+        profileCompleteness: 0,
+        suggestions: [],
+        estimatedMatchRange: '0-50%'
+      };
+    }
   }
 };
 

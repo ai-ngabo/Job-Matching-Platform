@@ -5,7 +5,6 @@ import {
   Calendar,
   Building2,
   AlertCircle,
-  Zap,
   User,
   Check,
   Clock,
@@ -26,11 +25,7 @@ const ApplicationsCompany = () => {
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
-  const [qualificationScores, setQualificationScores] = useState({});
   const [shortlistedCandidates, setShortlistedCandidates] = useState(new Set());
-  // Modal AI Match Score state
-  const [modalMatchScore, setModalMatchScore] = useState(null);
-  const [modalMatchLabel, setModalMatchLabel] = useState('');
 
   useEffect(() => {
     fetchApplications();
@@ -42,29 +37,12 @@ const ApplicationsCompany = () => {
       const query = statusFilter ? `&status=${statusFilter}` : '';
       const response = await api.get(`/applications/company/received?limit=50${query}`);
       setApplications(response.data.applications || []);
-      
-      // Score all applications
-      scoreApplications(response.data.applications);
     } catch (err) {
       console.error('Error fetching applications:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const scoreApplications = async (apps) => {
-    const scores = {};
-    for (const app of apps) {
-      try {
-        const response = await api.get(`/ai/qualification-score/${app._id}`);
-        scores[app._id] = response.data.qualificationScore || 0;
-      } catch (err) {
-        console.error('Error scoring application:', err);
-        scores[app._id] = 0;
-      }
-    }
-    setQualificationScores(scores);
   };
 
   const updateApplicationStatus = async (applicationId, newStatus, note = '') => {
@@ -99,20 +77,6 @@ const ApplicationsCompany = () => {
       console.error('Error updating shortlist:', err);
       alert('Failed to update shortlist');
     }
-  };
-
-  const getQualificationColor = (score) => {
-    if (score >= 80) return '#10b981';
-    if (score >= 60) return '#f59e0b';
-    if (score >= 40) return '#f97316';
-    return '#ef4444';
-  };
-
-  const getQualificationLabel = (score) => {
-    if (score >= 80) return 'Excellent';
-    if (score >= 60) return 'Good';
-    if (score >= 40) return 'Fair';
-    return 'Poor';
   };
 
   const formatDate = (dateString) => {
@@ -253,24 +217,6 @@ const ApplicationsCompany = () => {
                 </div>
               </div>
 
-              {/* Qualification Score */}
-              <div className="qualification-score">
-                <div className="score-header">
-                  <Zap size={16} />
-                  <span>AI Match Score</span>
-                </div>
-                <div className="score-container">
-                  <div className="score-circle" style={{ borderColor: getQualificationColor(qualificationScores[application._id] || 0) }}>
-                    <span className="score-value" style={{ color: getQualificationColor(qualificationScores[application._id] || 0) }}>
-                      {qualificationScores[application._id] || 0}%
-                    </span>
-                  </div>
-                  <span className="score-label" style={{ color: getQualificationColor(qualificationScores[application._id] || 0) }}>
-                    {getQualificationLabel(qualificationScores[application._id] || 0)}
-                  </span>
-                </div>
-              </div>
-
               {/* Application Details */}
               <div className="application-details">
                 <div className="detail-item">
@@ -306,18 +252,7 @@ const ApplicationsCompany = () => {
                 </button>
                 <button
                   className="action-btn view-btn"
-                  onClick={async () => {
-                    setSelectedApplication(application);
-                    // Fetch AI match score for this application
-                    try {
-                      const res = await api.get(`/ai/qualification-score/${application._id}`);
-                      setModalMatchScore(res.data.qualificationScore);
-                      setModalMatchLabel(res.data.scoreLevel);
-                    } catch (e) {
-                      setModalMatchScore(null);
-                      setModalMatchLabel('');
-                    }
-                  }}
+                  onClick={() => setSelectedApplication(application)}
                 >
                   <Eye size={14} />
                   View
@@ -341,19 +276,11 @@ const ApplicationsCompany = () => {
 
       {/* Application Detail Modal */}
       {selectedApplication && (
-        <div className="modal-overlay" onClick={() => {
-          setSelectedApplication(null);
-          setModalMatchScore(null);
-          setModalMatchLabel('');
-        }}>
+        <div className="modal-overlay" onClick={() => setSelectedApplication(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button
               className="modal-close"
-              onClick={() => {
-                setSelectedApplication(null);
-                setModalMatchScore(null);
-                setModalMatchLabel('');
-              }}
+              onClick={() => setSelectedApplication(null)}
             >
               ×
             </button>
@@ -377,16 +304,6 @@ const ApplicationsCompany = () => {
                   {selectedApplication.applicant?.profile?.firstName} {selectedApplication.applicant?.profile?.lastName}
                 </h2>
                 <p>{selectedApplication.applicantEmail}</p>
-                {modalMatchScore !== null && (
-                  <div className="ai-match-score-modal">
-                    <div className="ai-match-score-circle">
-                      {modalMatchScore}%
-                    </div>
-                    <span className="ai-match-score-label">
-                      {modalMatchLabel} Match
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -449,9 +366,6 @@ const ApplicationsCompany = () => {
           </div>
         </div>
       )}
-
-      {/* CV Viewer Modal */}
-      {/* Removed - CVs now open in new tab */}
 
       {/* Profile Modal */}
       {selectedProfile && (
