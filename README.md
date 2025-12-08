@@ -195,9 +195,6 @@ Job-Matching-Platform/
 │   ├── vercel.json           # Vercel configuration
 │   └── .env.example          # Example environment variables
 │
-├── DEPLOYMENT.md             # Deployment guide
-├── DEPLOYMENT_CHECKLIST.md   # Pre-deployment checklist
-├── API_AUDIT_COMPLETE.md     # API audit report
 └── README.md                 # This file
 ```
 
