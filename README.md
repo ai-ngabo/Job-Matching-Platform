@@ -972,20 +972,6 @@ Users receive emails for:
 
 ---
 
-## 🤖 AI Screening Algorithm
-
-The platform uses a weighted scoring system:
-
-```
-Total Score = (Skills Match × 0.4) + (Experience × 0.35) + (Education × 0.15) + (CV Presence × 0.1)
-
-Score Levels:
-- 80-100: Excellent
-- 60-79: Good
-- 40-59: Fair
-- 0-39: Low
-```
-
 ## 🐛 Troubleshooting
 
 ### Development Issues
@@ -1243,43 +1229,9 @@ After setup, verify everything works:
 
 ---
 
-## 🆘 Getting Help
-
-If you encounter issues:
-
-1. **Check documentation:**
-   - [DEPLOYMENT.md](./DEPLOYMENT.md) - Deployment guide
-   - [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) - Pre-deployment checklist
-   - [API_AUDIT_COMPLETE.md](./API_AUDIT_COMPLETE.md) - API endpoint reference
-
-2. **Check logs:**
-   - Browser console: F12 → Console tab
-   - Backend terminal: Look for error messages
-   - Deployment platform logs (Render/Vercel)
-
-3. **Common fixes:**
-   - Restart servers
-   - Clear browser cache
-   - Reinstall dependencies
-   - Check environment variables
-
-4. **Still stuck?**
-   - Review error message carefully
-   - Search in documentation
-   - Check GitHub issues
-   - Ask in project discussions
-
----
-
-## 📄 License
-
-This project is licensed under the ISC License.
-
----
-
 ## 👥 Team
 
-- **Architecture & Development**: AI-powered full-stack implementation
+- **Architecture & Development**: full-stack implementation
 - **Frontend**: React, Vite, Responsive UI
 - **Backend**: Node.js, Express, MongoDB
 - **AI**: Qualification scoring and matching algorithm
@@ -1300,4 +1252,4 @@ This project is licensed under the ISC License.
 
 ---
 
-**Happy job hunting with JobIFY! 🚀**
+**Happy job matching with JobIFY! 🚀**
