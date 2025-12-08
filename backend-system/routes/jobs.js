@@ -99,8 +99,15 @@ router.get('/', async (req, res) => {
       const token = authHeader?.replace('Bearer ', '')?.trim();
       if (token && token !== 'null' && token !== 'undefined' && process.env.JWT_SECRET) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        // Load minimal user info for scoring
-        requestingUser = await User.findById(decoded.userId).select('userType profile');
+        // Load complete user profile needed for scoring
+        requestingUser = await User.findById(decoded.userId)
+          .select('userType profile email')
+          .populate('profile.skills profile.experience profile.education profile.documents');
+        
+        // Ensure profile object exists
+        if (requestingUser && !requestingUser.profile) {
+          requestingUser.profile = {};
+        }
       }
     } catch (err) {
       // If token invalid, ignore scoring and continue as public

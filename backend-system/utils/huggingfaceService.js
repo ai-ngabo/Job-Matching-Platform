@@ -9,14 +9,6 @@ class HuggingFaceService {
 
   /**
    * Generate a natural, helpful English response using Hugging Face chat models.
-   * Supports optional conversation history and structured job/company context
-   * so the model can answer intelligently about your platform data.
-   *
-   * @param {string} prompt - Latest user question/message
-   * @param {Object} options
-   * @param {Array<{ type: 'user'|'bot', text: string }>} [options.history] - Prior messages
-   * @param {Object} [options.context] - Structured data (jobs, companies, stats, etc.)
-   * @param {string} [options.intent] - Detected intent (e.g. 'job_search', 'salary_info')
    */
   async generateResponse(prompt, options = {}) {
     const { history = [], context = {}, intent } = options;
@@ -42,7 +34,6 @@ class HuggingFaceService {
             }))
         : [];
 
-      // Prepare a compact JSON summary of context to keep prompts small
       const serializeJobs = (jobs = []) =>
         jobs.slice(0, 8).map(job => ({
           title: job.title,
@@ -72,11 +63,10 @@ class HuggingFaceService {
         platformInfo: context.platformInfo || undefined,
       };
 
-      const contextText =
-        JSON.stringify(contextSummary, (key, value) => {
-          if (value === undefined || value === null) return undefined;
-          return value;
-        });
+      const contextText = JSON.stringify(contextSummary, (key, value) => {
+        if (value === undefined || value === null) return undefined;
+        return value;
+      });
 
       const messages = [
         { role: "system", content: systemPrompt },
@@ -102,8 +92,7 @@ class HuggingFaceService {
   }
 
   /**
-   * Use the Llama-3 chat model to classify a free-text query into a high-level intent.
-   * Always returns a JSON object: { intent: string, confidence: number }
+   * Classify a free-text query into a high-level intent.
    */
   async classifyIntent(prompt) {
     try {
@@ -116,25 +105,24 @@ class HuggingFaceService {
             role: "system",
             content: `You are an intent classification assistant for the JobIFY job platform.
 User messages may be written in any language. Infer the meaning and classify it into ONE primary intent from this list:
-- "greeting"         → greetings, welcome, hello, hi, hey
-- "about_platform"   → questions about what JobIFY is, who created it, mission, how it works
-- "job_search"       → finding jobs, openings, positions, opportunities, internships, freelance, part-time, full-time
-- "salary_info"      → salaries, pay, wages, compensation, benefits, market rates, highest paying jobs
-- "best_salary"      → explicitly asking for highest paying jobs, best paying roles
-- "companies"        → companies, employers, organizations on JobIFY, who is hiring
-- "location"         → remote, hybrid, work from home, specific cities or countries
-- "skills"           → skills, qualifications, requirements for jobs
-- "experience_level" → junior, entry-level, mid-level, senior, years of experience
-- "career"           → career growth, career path, promotions, switching careers
-- "application"      → how to apply, application process, tracking applications
-- "profile"          → resume, CV, profile completion, how to improve profile
-- "interview"        → interview tips, common questions, how to prepare
-- "help"             → general help, what can you do, need assistance
-- "generic"          → anything else not clearly covered above
+- "greeting"
+- "about_platform"
+- "job_search"
+- "salary_info"
+- "best_salary"
+- "companies"
+- "location"
+- "skills"
+- "experience_level"
+- "career"
+- "application"
+- "profile"
+- "interview"
+- "help"
+- "generic"
 
-Return ONLY valid JSON with this shape (no extra text):
-{"intent": "one_of_the_intents_above", "confidence": 0.0-1.0}
-If you're unsure, use intent "generic" with a low confidence (e.g. 0.5).`,
+Return ONLY valid JSON with this shape:
+{"intent": "one_of_the_intents_above", "confidence": 0.0-1.0}`,
           },
           { role: "user", content: prompt },
         ],
@@ -161,7 +149,36 @@ If you're unsure, use intent "generic" with a low confidence (e.g. 0.5).`,
       return { intent: "generic", confidence: 0.5 };
     }
   }
+
+  /**
+   * Get embeddings for text using Hugging Face feature extraction.
+   */
+  async getEmbedding(text) {
+    try {
+      const response = await this.client.featureExtraction({
+        model: "sentence-transformers/all-MiniLM-L6-v2",
+        inputs: text,
+      });
+      return response; // array of floats
+    } catch (error) {
+      console.error("❌ getEmbedding error:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Cosine similarity between two embeddings.
+   */
+  calculateSimilarity(embeddingA, embeddingB) {
+    const dotProduct = embeddingA.reduce((sum, val, i) => sum + val * embeddingB[i], 0);
+    const normA = Math.sqrt(embeddingA.reduce((sum, val) => sum + val * val, 0));
+    const normB = Math.sqrt(embeddingB.reduce((sum, val) => sum + val * val, 0));
+    return dotProduct / (normA * normB);
+  }
 }
 
-// ✅ Export the instance, not the class
-export default new HuggingFaceService();
+// ✅ Export both default instance and named functions
+const service = new HuggingFaceService();
+export default service;
+export const getEmbedding = service.getEmbedding.bind(service);
+export const calculateSimilarity = service.calculateSimilarity.bind(service);

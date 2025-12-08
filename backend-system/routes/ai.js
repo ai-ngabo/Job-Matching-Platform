@@ -390,4 +390,234 @@ router.get('/match-score/:jobId', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/ai/jobseeker-report
+// @desc    Get comprehensive AI report for job seeker
+// @access  Private (Job Seeker only)
+router.get('/jobseeker-report', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({
+        message: 'Only job seekers can view AI reports'
+      });
+    }
+
+    const jobSeeker = await User.findById(req.user.id)
+      .select('profile email savedJobs')
+      .populate('profile.skills profile.experience profile.education profile.documents');
+
+    // Get recent jobs to analyze against
+    const recentJobs = await Job.find({ status: 'active' })
+      .limit(10)
+      .sort({ createdAt: -1 });
+
+    // Calculate scores for recent jobs
+    const jobScores = recentJobs.map(job => ({
+      jobId: job._id,
+      jobTitle: job.title,
+      company: job.companyName,
+      matchScore: Math.round(calculateQualificationScore(jobSeeker, job)),
+      skillsScore: calculateSkillsMatch(jobSeeker, job),
+      experienceScore: calculateExperienceMatch(jobSeeker, job),
+      educationScore: calculateEducationMatch(jobSeeker, job)
+    }));
+
+    // Calculate average scores
+    const avgMatchScore = jobScores.length > 0 
+      ? Math.round(jobScores.reduce((sum, js) => sum + js.matchScore, 0) / jobScores.length)
+      : 0;
+
+    // Generate improvement suggestions
+    const suggestions = generateImprovementSuggestions(jobSeeker, jobScores);
+
+    // Prepare report
+    const report = {
+      profileCompleteness: calculateProfileCompleteness(jobSeeker),
+      overallMatchPotential: avgMatchScore,
+      areaBreakdown: {
+        skills: {
+          score: jobScores.length > 0 
+            ? Math.round(jobScores.reduce((sum, js) => sum + js.skillsScore, 0) / jobScores.length)
+            : 0,
+          strength: jobSeeker.profile?.skills?.length > 5 ? 'Strong' : 'Needs Improvement',
+          suggestions: suggestions.skills
+        },
+        experience: {
+          score: jobScores.length > 0 
+            ? Math.round(jobScores.reduce((sum, js) => sum + js.experienceScore, 0) / jobScores.length)
+            : 0,
+          strength: jobSeeker.profile?.experience?.length > 0 ? 'Good' : 'Needs Experience',
+          suggestions: suggestions.experience
+        },
+        education: {
+          score: jobScores.length > 0 
+            ? Math.round(jobScores.reduce((sum, js) => sum + js.educationScore, 0) / jobScores.length)
+            : 0,
+          strength: jobSeeker.profile?.education?.length > 0 ? 'Good' : 'Needs Education Info',
+          suggestions: suggestions.education
+        }
+      },
+      topRecommendations: [
+        'Complete your profile with detailed skills and experience',
+        'Upload your CV/resume to increase match scores',
+        'Add at least 5 relevant skills to your profile',
+        'Include specific achievements in your experience section'
+      ],
+      recentJobMatches: jobScores.slice(0, 5)
+    };
+
+    res.json({
+      message: 'AI report generated successfully',
+      report: report,
+      generatedAt: new Date()
+    });
+
+  } catch (error) {
+    console.error('Generate AI report error:', error);
+    res.status(500).json({
+      message: 'Error generating AI report',
+      error: error.message
+    });
+  }
+});
+
+router.get('/jobseeker-analysis', auth, async (req, res) => {
+  try {
+    if (req.user.userType !== 'jobseeker') {
+      return res.status(403).json({
+        message: 'Only job seekers can view AI analysis'
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Get user's applications for stats
+    const applications = await Application.find({ applicant: req.user.id });
+    
+    // Get recent jobs to calculate match scores
+    const recentJobs = await Job.find({ status: 'active' }).limit(10);
+    
+    // Calculate average match score
+    let totalScore = 0;
+    let scoresCount = 0;
+    
+    for (const job of recentJobs) {
+      const score = calculateQualificationScore(user, job);
+      if (score > 0) {
+        totalScore += score;
+        scoresCount++;
+      }
+    }
+    
+    const avgScore = scoresCount > 0 ? Math.round(totalScore / scoresCount) : 50;
+    
+    // Generate analysis
+    const analysis = {
+      overallScore: avgScore,
+      breakdown: {
+        skills: Math.round(calculateSkillsMatch(user, { skillsRequired: [] })),
+        experience: Math.round(calculateExperienceMatch(user, { experienceLevel: 'entry' })),
+        education: Math.round(calculateEducationMatch(user, {})),
+        profileCompleteness: calculateProfileCompleteness(user)
+      },
+      strengths: generateStrengths(user),
+      improvementAreas: generateImprovementAreas(user),
+      proficiencyLevel: getProficiencyLevel(avgScore)
+    };
+
+    res.json({
+      message: 'AI analysis generated successfully',
+      analysis: analysis
+    });
+
+  } catch (error) {
+    console.error('AI analysis error:', error);
+    res.status(500).json({
+      message: 'Error generating AI analysis',
+      error: error.message
+    });
+  }
+});
+
+// Helper functions
+const calculateProfileCompleteness = (user) => {
+  const profile = user.profile || {};
+  let score = 0;
+  
+  if (profile.firstName && profile.lastName) score += 30;
+  if (profile.email) score += 20;
+  if (profile.phone) score += 10;
+  if (profile.location) score += 10;
+  if (profile.skills && profile.skills.length >= 3) score += 15;
+  if (profile.experience && profile.experience.length > 0) score += 10;
+  if (profile.education && profile.education.length > 0) score += 5;
+  
+  return Math.min(100, score);
+};
+
+const generateStrengths = (user) => {
+  const profile = user.profile || {};
+  const strengths = [];
+  
+  if (profile.skills && profile.skills.length >= 5) {
+    strengths.push('Strong technical skill set');
+  } else if (profile.skills && profile.skills.length > 0) {
+    strengths.push('Good foundational skills');
+  }
+  
+  if (profile.experience && profile.experience.length > 0) {
+    strengths.push('Relevant work experience');
+  }
+  
+  if (profile.education && profile.education.length > 0) {
+    strengths.push('Good educational background');
+  }
+  
+  if (profile.documents?.cv?.url) {
+    strengths.push('Professional CV available');
+  }
+  
+  if (strengths.length === 0) {
+    strengths.push('Great potential', 'Willingness to learn');
+  }
+  
+  return strengths.slice(0, 3);
+};
+
+const generateImprovementAreas = (user) => {
+  const profile = user.profile || {};
+  const areas = [];
+  
+  if (!profile.skills || profile.skills.length < 3) {
+    areas.push('Add more skills to your profile');
+  }
+  
+  if (!profile.experience || profile.experience.length === 0) {
+    areas.push('Add work experience or projects');
+  }
+  
+  if (!profile.documents?.cv?.url) {
+    areas.push('Upload your CV/resume');
+  }
+  
+  if (!profile.summary || profile.summary.length < 50) {
+    areas.push('Write a professional summary');
+  }
+  
+  if (areas.length === 0) {
+    areas.push('Keep your profile updated', 'Network with professionals');
+  }
+  
+  return areas.slice(0, 3);
+};
+
+const getProficiencyLevel = (score) => {
+  if (score >= 80) return 'Expert';
+  if (score >= 65) return 'Advanced';
+  if (score >= 50) return 'Intermediate';
+  return 'Beginner';
+};
+
 export default router;
